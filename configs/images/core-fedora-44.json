@@ -2,16 +2,16 @@
   "schema_version": 1,
   "device": "uke",
   "distribution": "fedora",
-  "release": "rawhide",
+  "release": "44",
   "architecture": "aarch64",
   "kernel_version": "7.2.9",
   "kernel_release": "7.2.9-senemos-uke",
-  "kernel_image_sha256": "ea84ecff30bd0ab799ba6a5f02faee1bf3b28099fbffd75f234adf4a2a85c97e",
+  "kernel_image_sha256": "2fc8ad9cac1bcf7d8cebdb630e8867e83dff6444c7eceb1e6c2aed44d777eb86",
   "esp_size_mib": 256,
   "root_size_mib": 4096,
   "fat_sector_bytes": 512,
   "esp_partition_label": "esp",
-  "linux_partition_label": "linux",
+  "linux_partition_label": "userdata",
   "esp_filesystem_label": "UKE_ESP",
   "linux_filesystem_label": "UKE_LINUX",
   "physical_geometry_verified": false,
@@ -19,10 +19,9 @@
   "uefi_handoff_verified": false,
   "boot_tested": false,
   "hardware_tested": false,
-  "kernel_config_sha256": "6acfec0f7fec1fe7169366073c51a8f1719f49c665543709e11be8f1468336a7",
-  "kernel_copr_build": 11081958,
+  "kernel_config_sha256": "36eb45afd04f6fae5fe42a138f7e7ed0a58754e74d64bf65b51fcf038009a240",
   "profile": "core",
-  "kernel_command_line": "root=LABEL=UKE_LINUX rw rootfstype=ext4 rootwait console=tty0 rd.senemos.tty=1 senemos.debug=esp32-cdc",
+  "kernel_command_line": "root=PARTLABEL=userdata rw rootfstype=ext4 rootwait console=tty0 rd.senemos.tty=1 senemos.debug=esp32-cdc",
   "cdc": {
     "tablet_usb_role": "host",
     "esp32_usb_role": "device",
@@ -33,8 +32,8 @@
   },
   "development_root_shell": true,
   "source_kernel_prerequisites_passed": false,
-  "runtime_base_image": "registry.fedoraproject.org/fedora@sha256:9b0213742bcf87c07d8768278b03686e8655faaeb85027ecbdfe37b8d5017769",
-  "root_selector": "LABEL=UKE_LINUX",
+  "runtime_base_image": "registry.fedoraproject.org/fedora@sha256:f1937565e7e85c89f1c5eae50fa4dc9665a4df891acf50ac07b1e0a7561b6243",
+  "root_selector": "PARTLABEL=userdata",
   "partition_addressing": "fastboot-name-and-filesystem-label",
   "partition_offsets": null,
   "early_initramfs_shell": {
@@ -45,5 +44,5 @@
     "requires_root_filesystem": false,
     "physical_tested": false
   },
-  "boot_package_copr_build": 11081332
+  "kernel_package_source": "local-fedora-44-build"
 }

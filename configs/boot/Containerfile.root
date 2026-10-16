@@ -1,0 +1,5 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+RUN dnf -y --setopt=install_weak_deps=False install \
+    dracut tar gzip cpio findutils diffutils util-linux kmod \
+    && dnf clean all

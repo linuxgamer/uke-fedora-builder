@@ -6,12 +6,12 @@
   "minimum_free_gib": 25,
   "default_max_jobs": 4,
   "source_signer": "647F28654894E3BD457199BE38DBBDC86092693E",
-  "fedora_rawhide_images": {
-    "x86_64": "registry.fedoraproject.org/fedora@sha256:f7d3478d02965da40131211c19fb827b4d6e3de0904e9d582a9354af47949c14",
-    "aarch64": "registry.fedoraproject.org/fedora@sha256:9b0213742bcf87c07d8768278b03686e8655faaeb85027ecbdfe37b8d5017769"
-  },
+  "fedora_images": {"44": {
+    "x86_64": "registry.fedoraproject.org/fedora@sha256:923dd7d4362a78ef7edc1887cb599720e9f59ff8669a38c81062c6e2aaa83204",
+    "aarch64": "registry.fedoraproject.org/fedora@sha256:f1937565e7e85c89f1c5eae50fa4dc9665a4df891acf50ac07b1e0a7561b6243"
+  }},
   "targets": {
-    "fedora": {"format": "rpm", "default_release": "rawhide", "releases": {"rawhide": "implemented", "45": "planned"}},
+    "fedora": {"format": "rpm", "default_release": "44", "releases": {"44": "implemented"}},
     "opensuse": {"format": "rpm", "default_release": "tumbleweed", "releases": {"tumbleweed": "planned"}},
     "debian": {"format": "deb", "default_release": "stable", "releases": {"stable": "planned"}},
     "ubuntu": {"format": "deb", "default_release": "lts", "releases": {"lts": "planned"}},

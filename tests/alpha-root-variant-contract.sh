@@ -36,6 +36,13 @@ for label in linux userdata; do
     if grep -E 'senemos.debug|qrtr_smd|qcom_pd_mapper|qcom_battmgr' "$out/kernel.config" "$out/initramfs-root/etc/cmdline.d/"*; then exit 1; fi
     (cd "$out"; sha256sum -c SHA256SUMS)
 done
+# The primary recipe now supplies a userdata source; conversion must work both ways.
+sed 's/root=PARTLABEL=linux /root=PARTLABEL=userdata /' "$fixture/base.config" > "$fixture/userdata.config"
+sed -i 's/root=PARTLABEL=linux /root=PARTLABEL=userdata /' "$fixture/input/etc/cmdline.d/10-default.conf"
+bash "$root/src/boot-pair/prepare-alpha-variant.sh" "$fixture/userdata.config" "$fixture/input" linux "$fixture/from-userdata" /project/build/from-userdata/initramfs.cpio.gz
+grep -F 'root=PARTLABEL=linux ' "$fixture/from-userdata/kernel.config" >/dev/null
+grep -F 'root=PARTLABEL=linux ' "$fixture/from-userdata/initramfs-root/etc/cmdline.d/10-default.conf" >/dev/null
+sed -i 's/root=PARTLABEL=userdata /root=PARTLABEL=linux /' "$fixture/input/etc/cmdline.d/10-default.conf"
 reject() { if bash "$root/src/boot-pair/prepare-alpha-variant.sh" "$@" >/dev/null 2>&1; then echo 'Unsafe variant request accepted' >&2; exit 1; fi; }
 reject "$fixture/base.config" "$fixture/input" system "$fixture/bad" /project/build/test.cpio.gz
 reject "$fixture/base.config" "$fixture/input" linux "$fixture/linux" /project/build/test.cpio.gz

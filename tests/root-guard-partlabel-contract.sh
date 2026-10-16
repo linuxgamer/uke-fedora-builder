@@ -5,7 +5,7 @@ root=$(cd "$(dirname "$0")/.." && pwd)
 command -v bwrap >/dev/null
 fixture=$(mktemp -d)
 trap 'status=$?; if ((status)); then cat "$fixture/result" 2>/dev/null || :; fi; rm -rf "$fixture"' EXIT
-block=$(find /dev -maxdepth 2 -type b -print -quit)
+block=$(find /dev -maxdepth 2 -type b -print -quit 2>/dev/null || true)
 [[ -n $block ]] || { echo 'A block inode is required for read-only stat fixtures' >&2; exit 2; }
 mkdir -p "$fixture/bin" "$fixture/dev/disk/by-partlabel" "$fixture/sys/class/block" "$fixture/sys/devices/physical/block/fake1" "$fixture/sys/devices/virtual/block/fake2"
 touch "$fixture/dev/fake1" "$fixture/dev/fake2"

@@ -27,12 +27,17 @@ bash /builder/src/audit/check-target-elf.sh "$root"
 bash /builder/src/audit/check-target-privacy.sh --namespace-policy /builder/configs/images/selinux-namespace-policy.json "$root"
 [[ ! -s $root/etc/machine-id && ! -e $root/etc/ssh/ssh_host_ed25519_key ]]
 [[ ! -e $root/var/lib/systemd/random-seed ]]
+[[ ! -e $root/.dockerenv && ! -e $root/.containerenv && ! -e $root/run/.containerenv ]]
 [[ $(readlink "$root/etc/systemd/system/getty@tty2.service") == /dev/null ]]
 [[ -L $root/etc/systemd/system/multi-user.target.wants/uke-esp32-cdc-log.service ]]
 [[ -L $root/etc/systemd/system/sysinit.target.wants/debug-shell.service ]]
 grep -F 'StandardOutput=journal' "$root/etc/systemd/system/debug-shell.service.d/90-uke-core.conf"
 [[ $(readlink "$root/etc/systemd/system/default.target") == /usr/lib/systemd/system/multi-user.target ]]
-grep -Fx 'LABEL=UKE_LINUX / ext4 defaults 0 1' "$root/etc/fstab"
+partlabel=$(jq -er .linux_partition_label "$profile")
+[[ $partlabel == userdata || $partlabel == linux ]]
+root_options=defaults
+[[ $partlabel != userdata ]] || root_options=defaults,x-systemd.growfs
+grep -Fx "PARTLABEL=$partlabel / ext4 $root_options 0 1" "$root/etc/fstab"
 grep -Fx 'LABEL=UKE_ESP /boot/efi vfat umask=0077,nofail 0 2' "$root/etc/fstab"
 mkdir "$work/initramfs-root"
 gzip -cd "$initrd" | (cd "$work/initramfs-root"; cpio -id --quiet --no-absolute-filenames)
@@ -40,6 +45,7 @@ bash /builder/src/audit/check-target-elf.sh "$work/initramfs-root"
 bash /builder/src/audit/check-target-privacy.sh "$work/initramfs-root"
 [[ ! -s $work/initramfs-root/etc/machine-id && ! -s $work/initramfs-root/var/lib/systemd/random-seed ]]
 [[ -e $work/initramfs-root/init || -L $work/initramfs-root/init ]]
+grep -F "root=PARTLABEL=$partlabel " "$work/initramfs-root"/etc/cmdline.d/*.conf
 for service in uke-initrd-shell uke-initrd-cdc; do
     [[ -f $work/initramfs-root/usr/lib/systemd/system/$service.service ]]
     grep -Fx 'ConditionKernelCommandLine=rd.senemos.tty=1' "$work/initramfs-root/usr/lib/systemd/system/$service.service"

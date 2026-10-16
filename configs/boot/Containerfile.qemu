@@ -1,0 +1,4 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+RUN dnf -y --setopt=install_weak_deps=False install qemu-system-aarch64-core \
+    && dnf clean all

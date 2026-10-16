@@ -50,6 +50,11 @@ for name in correct changed-uuid wrong-partname wrong-fstype duplicate-partname;
         grep -F '/dev/vda1 ext4' "$out/$name.status.txt" >/dev/null
         grep -F 'pid1=/usr/lib/systemd/systemd' "$out/$name.status.txt" >/dev/null
         grep -F selinux=1 "$out/$name.status.txt" >/dev/null
+        if [[ $(jq -r '.root_partlabel // "linux"' "$out/profile.json") == userdata ]]; then
+            grep -F 'EXT4-fs (vda1): resized filesystem to 819200' "$log" >/dev/null || {
+                echo 'Userdata root did not grow to the larger partition' >&2; exit 1;
+            }
+        fi
         exec 3<>/dev/tcp/127.0.0.1/4444
         IFS= read -r -t 5 greeting <&3
         [[ $greeting == *'"QMP"'* ]]
@@ -95,6 +100,8 @@ cat > "$out/result.json" <<JSON
   "evidence_class": "generic-arm64-qemu-root-fixture",
   "kernel_sha256": "$(sha256sum "$out/Image" | cut -d ' ' -f1)",
   "test_script_sha256": "$(sha256sum "$0" | cut -d ' ' -f1)",
+  "root_filesystem_growth": $(if [[ $(jq -r '.root_partlabel // "linux"' "$out/profile.json") == userdata ]]; then echo true; else echo false; fi),
+  "root_partition_label": "$(jq -r '.root_partlabel // "linux"' "$out/profile.json")",
   "real_ext4_root_transition": true,
   "root_pid1_systemd": true,
   "selinux_enforcing": true,

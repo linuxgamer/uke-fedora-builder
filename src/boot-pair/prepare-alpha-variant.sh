@@ -10,10 +10,12 @@ root=$(cd "$(dirname "$0")/../.." && pwd)
 grep -Fx 'CONFIG_CMDLINE_FORCE=y' "$config" >/dev/null
 [[ $(grep -c '^CONFIG_CMDLINE=' "$config") == 1 && $(grep -c '^CONFIG_INITRAMFS_SOURCE=' "$config") == 1 ]]
 cmdline=$(sed -n 's/^CONFIG_CMDLINE="\(.*\)"$/\1/p' "$config")
-[[ $(printf '%s\n' "$cmdline" | tr ' ' '\n' | grep -c '^root=') == 1 && " $cmdline " == *' root=PARTLABEL=linux '* ]]
+[[ $(printf '%s\n' "$cmdline" | tr ' ' '\n' | grep -c '^root=') == 1 ]]
 [[ -x $init/usr/libexec/uke-root-guard && -s $init/etc/cmdline.d/10-default.conf ]]
 [[ $(grep -roE 'root=[^[:space:]]+' "$init/etc/cmdline.d" | wc -l) == 1 ]]
-grep -F 'root=PARTLABEL=linux ' "$init/etc/cmdline.d/10-default.conf" >/dev/null
+source_label=$(printf '%s\n' "$cmdline" | tr ' ' '\n' | sed -n 's/^root=PARTLABEL=//p')
+[[ $source_label == linux || $source_label == userdata ]]
+grep -F "root=PARTLABEL=$source_label " "$init/etc/cmdline.d/10-default.conf" >/dev/null
 # A stale hand-written mount must not override dracut's command-line generator.
 [[ ! -e $init/etc/systemd/system/sysroot.mount && ! -e $init/usr/lib/systemd/system/sysroot.mount ]]
 mkdir -p "$out/initramfs-root"
@@ -36,9 +38,9 @@ if [[ -f $public/etc/cmdline.d/20-force_drivers.conf ]]; then
 fi
 install -m755 "$root/src/boot-pair/dracut/root-guard.sh" "$out/initramfs-root/usr/libexec/uke-root-guard"
 install -m644 "$root/src/boot-pair/dracut/uke-root-guard.service" "$out/initramfs-root/usr/lib/systemd/system/uke-root-guard.service"
-sed -e "s/root=PARTLABEL=linux /root=PARTLABEL=$partlabel /" -e 's/ senemos.debug=[^[:space:]]*//g' "$init/etc/cmdline.d/10-default.conf" > "$out/initramfs-root/etc/cmdline.d/10-default.conf"
+sed -e "s/root=PARTLABEL=$source_label /root=PARTLABEL=$partlabel /" -e 's/ senemos.debug=[^[:space:]]*//g' "$init/etc/cmdline.d/10-default.conf" > "$out/initramfs-root/etc/cmdline.d/10-default.conf"
 awk -v label="$partlabel" -v archive="$archive_path" '
-    /^CONFIG_CMDLINE=/ {sub(/root=PARTLABEL=linux /, "root=PARTLABEL=" label " "); gsub(/ senemos.debug=[^ \042]*/, "")}
+    /^CONFIG_CMDLINE=/ {sub(/root=PARTLABEL=(linux|userdata) /, "root=PARTLABEL=" label " "); gsub(/ senemos.debug=[^ \042]*/, "")}
     /^CONFIG_INITRAMFS_SOURCE=/ {$0="CONFIG_INITRAMFS_SOURCE=\"" archive "\""}
     {print}
 ' "$config" > "$out/kernel.config"

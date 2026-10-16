@@ -1,19 +1,48 @@
 {
   "schema_version": 1,
+  "date": "2026-10-16",
+  "target": "fedora-44-aarch64",
+  "scope": "Locally built Fedora 44 boot integration inputs",
+  "hardware_tested": false,
   "packages": [
     {
-      "stage": "boot",
-      "file": "uke-boot-integration-0.1.0-4.fc46.aarch64.rpm",
+      "name": "uke-boot-integration",
+      "epoch": "0",
+      "version": "0.1.0",
+      "release": "13.fc44",
       "arch": "aarch64",
-      "sha256": "363ae7698e826eb69e23258bdf72bc3fcf21d409a71891be3737d6c74c313faa",
-      "url": "https://download.copr.fedorainfracloud.org/results/mcc45tr/uke-linux-test/fedora-rawhide-aarch64/11081332-uke-boot-integration/uke-boot-integration-0.1.0-4.fc46.aarch64.rpm"
+      "license": "MIT",
+      "file": "uke-boot-integration-0.1.0-13.fc44.aarch64.rpm",
+      "sha256": "7be8ce8de573baeabfb8e4608346927854c9995adc1dea4973e7f42a09945907",
+      "stage": "boot",
+      "source_rpm": "uke-boot-integration-0.1.0-13.fc44.src.rpm",
+      "local_path": "artifacts/rpms/fedora-44/uke-boot-integration-0.1.0-13/uke-boot-integration-0.1.0-13.fc44.aarch64.rpm"
     },
     {
-      "stage": "boot",
-      "file": "uke-esp32-cdc-0.1.0-4.fc46.aarch64.rpm",
+      "name": "uke-cdc-debug",
+      "epoch": "0",
+      "version": "0.1.0",
+      "release": "13.fc44",
       "arch": "aarch64",
-      "sha256": "0659dbd1cc0a69a11f2b9aaa0a4a5e97da7406abc2b0343cc33e0d7daa143b4b",
-      "url": "https://download.copr.fedorainfracloud.org/results/mcc45tr/uke-linux-test/fedora-rawhide-aarch64/11081332-uke-boot-integration/uke-esp32-cdc-0.1.0-4.fc46.aarch64.rpm"
+      "license": "MIT",
+      "file": "uke-cdc-debug-0.1.0-13.fc44.aarch64.rpm",
+      "sha256": "6d0411ab3aa9a171da0e6f79b96f7fefee053421bd9401eb86255c098d8290f0",
+      "stage": "boot",
+      "source_rpm": "uke-boot-integration-0.1.0-13.fc44.src.rpm",
+      "local_path": "artifacts/rpms/fedora-44/uke-boot-integration-0.1.0-13/uke-cdc-debug-0.1.0-13.fc44.aarch64.rpm"
+    },
+    {
+      "name": "uke-esp32-cdc",
+      "epoch": "0",
+      "version": "0.1.0",
+      "release": "13.fc44",
+      "arch": "aarch64",
+      "license": "MIT",
+      "file": "uke-esp32-cdc-0.1.0-13.fc44.aarch64.rpm",
+      "sha256": "e689c51a1e881e21c8c13f7716c7f461e4a92ead49559aac9b9f4630d2656594",
+      "stage": "boot",
+      "source_rpm": "uke-boot-integration-0.1.0-13.fc44.src.rpm",
+      "local_path": "artifacts/rpms/fedora-44/uke-boot-integration-0.1.0-13/uke-esp32-cdc-0.1.0-13.fc44.aarch64.rpm"
     }
   ]
 }

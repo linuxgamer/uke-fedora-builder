@@ -1,396 +1,389 @@
 {
   "rpms": [
     {
-      "nevra": "uke-core-meta-1.0.0-3.fc46.aarch64",
+      "nevra": "cpio-2.15-9.fc44.aarch64",
       "action": "Install",
       "reason": "User",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/uke-core-meta-1.0.0-3.fc46.aarch64.rpm"
+      "repo_id": "@stored_transaction(fedora)",
+      "package_path": "./packages/cpio-2.15-9.fc44.aarch64.rpm"
     },
     {
-      "nevra": "uke-desktop-metas-1.0.0-3.fc46.aarch64",
+      "nevra": "kmod-34.2-4.fc44.aarch64",
       "action": "Install",
       "reason": "User",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/uke-desktop-metas-1.0.0-3.fc46.aarch64.rpm"
+      "repo_id": "@stored_transaction(fedora)",
+      "package_path": "./packages/kmod-34.2-4.fc44.aarch64.rpm"
     },
     {
-      "nevra": "plymouth-uke-1.0.0-1.fc46.noarch",
+      "nevra": "uke-core-meta-1.0.0-4.fc44.aarch64",
       "action": "Install",
       "reason": "User",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/plymouth-uke-1.0.0-1.fc46.noarch.rpm"
+      "repo_id": "@stored_transaction(@commandline)",
+      "package_path": "./packages/uke-core-meta-1.0.0-4.fc44.aarch64.rpm"
     },
     {
-      "nevra": "uke-orangefox-recovery-12.0~alpha1.20260930-1.1.fc46.aarch64",
+      "nevra": "uke-desktop-metas-1.0.0-8.fc44.aarch64",
       "action": "Install",
       "reason": "User",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/uke-orangefox-recovery-12.0~alpha1.20260930-1.1.fc46.aarch64.rpm"
+      "repo_id": "@stored_transaction(@commandline)",
+      "package_path": "./packages/uke-desktop-metas-1.0.0-8.fc44.aarch64.rpm"
     },
     {
-      "nevra": "NetworkManager-1:1.58.1-1.fc46.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/NetworkManager-1.58.1-1.fc46.aarch64.rpm"
-    },
-    {
-      "nevra": "openssh-server-10.5p1-1.fc46.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/openssh-server-10.5p1-1.fc46.aarch64.rpm"
-    },
-    {
-      "nevra": "senemos-uke-linux-kernel-mainline-7.2.9-1.4.fc46.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/senemos-uke-linux-kernel-mainline-7.2.9-1.4.fc46.aarch64.rpm"
-    },
-    {
-      "nevra": "plymouth-26.134.222-6.fc45.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/plymouth-26.134.222-6.fc45.aarch64.rpm"
-    },
-    {
-      "nevra": "plymouth-plugin-script-26.134.222-6.fc45.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/plymouth-plugin-script-26.134.222-6.fc45.aarch64.rpm"
-    },
-    {
-      "nevra": "NetworkManager-libnm-1:1.58.1-1.fc46.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/NetworkManager-libnm-1.58.1-1.fc46.aarch64.rpm"
-    },
-    {
-      "nevra": "dbus-1:1.16.2-6.fc45.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/dbus-1.16.2-6.fc45.aarch64.rpm"
-    },
-    {
-      "nevra": "libbpf-2:1.7.0-2.fc45.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/libbpf-1.7.0-2.fc45.aarch64.rpm"
-    },
-    {
-      "nevra": "libndp-1.9-6.fc45.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/libndp-1.9-6.fc45.aarch64.rpm"
-    },
-    {
-      "nevra": "systemd-262-3.fc46.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/systemd-262-3.fc46.aarch64.rpm"
-    },
-    {
-      "nevra": "openssh-10.5p1-1.fc46.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/openssh-10.5p1-1.fc46.aarch64.rpm"
-    },
-    {
-      "nevra": "util-linux-2.42.4-2.fc46.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/util-linux-2.42.4-2.fc46.aarch64.rpm"
-    },
-    {
-      "nevra": "senemos-uke-linux-kernel-mainline-core-7.2.9-1.4.fc46.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/senemos-uke-linux-kernel-mainline-core-7.2.9-1.4.fc46.aarch64.rpm"
-    },
-    {
-      "nevra": "senemos-uke-linux-kernel-mainline-dtbs-7.2.9-1.4.fc46.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/senemos-uke-linux-kernel-mainline-dtbs-7.2.9-1.4.fc46.aarch64.rpm"
-    },
-    {
-      "nevra": "senemos-uke-linux-kernel-mainline-modules-7.2.9-1.4.fc46.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/senemos-uke-linux-kernel-mainline-modules-7.2.9-1.4.fc46.aarch64.rpm"
-    },
-    {
-      "nevra": "plymouth-core-libs-26.134.222-6.fc45.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/plymouth-core-libs-26.134.222-6.fc45.aarch64.rpm"
-    },
-    {
-      "nevra": "plymouth-scripts-26.134.222-6.fc45.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/plymouth-scripts-26.134.222-6.fc45.aarch64.rpm"
-    },
-    {
-      "nevra": "xkeyboard-config-2.48-4.fc45.noarch",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/xkeyboard-config-2.48-4.fc45.noarch.rpm"
-    },
-    {
-      "nevra": "plymouth-graphics-libs-26.134.222-6.fc45.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/plymouth-graphics-libs-26.134.222-6.fc45.aarch64.rpm"
-    },
-    {
-      "nevra": "dbus-broker-37-9.fc45.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/dbus-broker-37-9.fc45.aarch64.rpm"
-    },
-    {
-      "nevra": "libseccomp-2.6.1-3.fc45.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/libseccomp-2.6.1-3.fc45.aarch64.rpm"
-    },
-    {
-      "nevra": "systemd-shared-262-3.fc46.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/systemd-shared-262-3.fc46.aarch64.rpm"
-    },
-    {
-      "nevra": "libfdisk-2.42.4-2.fc46.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/libfdisk-2.42.4-2.fc46.aarch64.rpm"
-    },
-    {
-      "nevra": "liblastlog2-2.42.4-2.fc46.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/liblastlog2-2.42.4-2.fc46.aarch64.rpm"
-    },
-    {
-      "nevra": "libevdev-1.13.7-1.fc46.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/libevdev-1.13.7-1.fc46.aarch64.rpm"
-    },
-    {
-      "nevra": "libxkbcommon-1.13.1-4.fc46.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/libxkbcommon-1.13.1-4.fc46.aarch64.rpm"
-    },
-    {
-      "nevra": "cpio-2.15-10.fc45.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/cpio-2.15-10.fc45.aarch64.rpm"
-    },
-    {
-      "nevra": "dracut-111-4.fc46.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/dracut-111-4.fc46.aarch64.rpm"
-    },
-    {
-      "nevra": "fedora-logos-42.0.1-6.fc45.noarch",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/fedora-logos-42.0.1-6.fc45.noarch.rpm"
-    },
-    {
-      "nevra": "libdrm-2.4.134-2.fc45.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/libdrm-2.4.134-2.fc45.aarch64.rpm"
-    },
-    {
-      "nevra": "libpng-2:1.6.58-2.fc45.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/libpng-1.6.58-2.fc45.aarch64.rpm"
-    },
-    {
-      "nevra": "dbus-common-1:1.16.2-6.fc45.noarch",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/dbus-common-1.16.2-6.fc45.noarch.rpm"
-    },
-    {
-      "nevra": "expat-2.8.3-1.fc46.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/expat-2.8.3-1.fc46.aarch64.rpm"
-    },
-    {
-      "nevra": "kbd-2.10.0-3.fc46.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/kbd-2.10.0-3.fc46.aarch64.rpm"
-    },
-    {
-      "nevra": "kmod-libs-34.2-6.fc45.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/kmod-libs-34.2-6.fc45.aarch64.rpm"
-    },
-    {
-      "nevra": "libkcapi-hmaccalc-1.5.1-2.fc46.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/libkcapi-hmaccalc-1.5.1-2.fc46.aarch64.rpm"
-    },
-    {
-      "nevra": "procps-ng-4.0.7-1.fc46.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/procps-ng-4.0.7-1.fc46.aarch64.rpm"
-    },
-    {
-      "nevra": "systemd-udev-262-3.fc46.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/systemd-udev-262-3.fc46.aarch64.rpm"
-    },
-    {
-      "nevra": "libpciaccess-0.16-18.fc45.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/libpciaccess-0.16-18.fc45.aarch64.rpm"
-    },
-    {
-      "nevra": "kbd-legacy-2.10.0-3.fc46.noarch",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/kbd-legacy-2.10.0-3.fc46.noarch.rpm"
-    },
-    {
-      "nevra": "kbd-misc-2.10.0-3.fc46.noarch",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/kbd-misc-2.10.0-3.fc46.noarch.rpm"
-    },
-    {
-      "nevra": "libkcapi-hasher-1.5.1-2.fc46.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/libkcapi-hasher-1.5.1-2.fc46.aarch64.rpm"
-    },
-    {
-      "nevra": "cryptsetup-libs-2.8.8-1.fc46.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/cryptsetup-libs-2.8.8-1.fc46.aarch64.rpm"
-    },
-    {
-      "nevra": "hwdata-0.412-1.fc46.noarch",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/hwdata-0.412-1.fc46.noarch.rpm"
-    },
-    {
-      "nevra": "libkcapi-1.5.1-2.fc46.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/libkcapi-1.5.1-2.fc46.aarch64.rpm"
-    },
-    {
-      "nevra": "device-mapper-libs-1.02.217-1.fc46.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/device-mapper-libs-1.02.217-1.fc46.aarch64.rpm"
-    },
-    {
-      "nevra": "device-mapper-1.02.217-1.fc46.aarch64",
-      "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/device-mapper-1.02.217-1.fc46.aarch64.rpm"
-    },
-    {
-      "nevra": "kmod-34.2-6.fc45.aarch64",
+      "nevra": "plymouth-uke-1.0.0-1.fc44.noarch",
       "action": "Install",
       "reason": "User",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/kmod-34.2-6.fc45.aarch64.rpm"
+      "repo_id": "@stored_transaction(@commandline)",
+      "package_path": "./packages/plymouth-uke-1.0.0-1.fc44.noarch.rpm"
     },
     {
-      "nevra": "pkgconf-2.5.1-2.fc45.aarch64",
+      "nevra": "uke-orangefox-recovery-12.0~preview3.20261010-2.fc44.aarch64",
       "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/pkgconf-2.5.1-2.fc45.aarch64.rpm"
+      "reason": "User",
+      "repo_id": "@stored_transaction(@commandline)",
+      "package_path": "./packages/uke-orangefox-recovery-12.0~preview3.20261010-2.fc44.aarch64.rpm"
     },
     {
-      "nevra": "pkgconf-m4-2.5.1-2.fc45.noarch",
+      "nevra": "senemos-uke-linux-kernel-mainline-7.2.9-1.39.fc44.aarch64",
       "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/pkgconf-m4-2.5.1-2.fc45.noarch.rpm"
+      "reason": "User",
+      "repo_id": "@stored_transaction(@commandline)",
+      "package_path": "./packages/senemos-uke-linux-kernel-mainline-7.2.9-1.39.fc44.aarch64.rpm"
     },
     {
-      "nevra": "pkgconf-pkg-config-2.5.1-2.fc45.aarch64",
+      "nevra": "senemos-uke-linux-kernel-mainline-core-7.2.9-1.39.fc44.aarch64",
       "action": "Install",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/pkgconf-pkg-config-2.5.1-2.fc45.aarch64.rpm"
+      "reason": "User",
+      "repo_id": "@stored_transaction(@commandline)",
+      "package_path": "./packages/senemos-uke-linux-kernel-mainline-core-7.2.9-1.39.fc44.aarch64.rpm"
     },
     {
-      "nevra": "libpkgconf-2.5.1-2.fc45.aarch64",
+      "nevra": "senemos-uke-linux-kernel-mainline-dtbs-7.2.9-1.39.fc44.aarch64",
+      "action": "Install",
+      "reason": "User",
+      "repo_id": "@stored_transaction(@commandline)",
+      "package_path": "./packages/senemos-uke-linux-kernel-mainline-dtbs-7.2.9-1.39.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "senemos-uke-linux-kernel-mainline-modules-7.2.9-1.39.fc44.aarch64",
+      "action": "Install",
+      "reason": "User",
+      "repo_id": "@stored_transaction(@commandline)",
+      "package_path": "./packages/senemos-uke-linux-kernel-mainline-modules-7.2.9-1.39.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "pkgconf-pkg-config-2.5.1-1.fc44.aarch64",
       "action": "Install",
       "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/libpkgconf-2.5.1-2.fc45.aarch64.rpm"
+      "repo_id": "@stored_transaction(fedora)",
+      "package_path": "./packages/pkgconf-pkg-config-2.5.1-1.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "plymouth-24.004.60-24.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(fedora)",
+      "package_path": "./packages/plymouth-24.004.60-24.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "plymouth-plugin-script-24.004.60-24.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(fedora)",
+      "package_path": "./packages/plymouth-plugin-script-24.004.60-24.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "pkgconf-2.5.1-1.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(fedora)",
+      "package_path": "./packages/pkgconf-2.5.1-1.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "pkgconf-m4-2.5.1-1.fc44.noarch",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(fedora)",
+      "package_path": "./packages/pkgconf-m4-2.5.1-1.fc44.noarch.rpm"
+    },
+    {
+      "nevra": "plymouth-core-libs-24.004.60-24.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(fedora)",
+      "package_path": "./packages/plymouth-core-libs-24.004.60-24.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "plymouth-scripts-24.004.60-24.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(fedora)",
+      "package_path": "./packages/plymouth-scripts-24.004.60-24.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "xkeyboard-config-2.47-1.fc44.noarch",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(fedora)",
+      "package_path": "./packages/xkeyboard-config-2.47-1.fc44.noarch.rpm"
+    },
+    {
+      "nevra": "plymouth-graphics-libs-24.004.60-24.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(fedora)",
+      "package_path": "./packages/plymouth-graphics-libs-24.004.60-24.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "libpkgconf-2.5.1-1.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(fedora)",
+      "package_path": "./packages/libpkgconf-2.5.1-1.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "libxkbcommon-1.13.1-2.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(fedora)",
+      "package_path": "./packages/libxkbcommon-1.13.1-2.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "NetworkManager-1:1.56.1-2.fc44.aarch64",
+      "action": "Install",
+      "reason": "User",
+      "repo_id": "@stored_transaction(updates)",
+      "package_path": "./packages/NetworkManager-1.56.1-2.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "dbus-1:1.16.2-1.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(fedora)",
+      "package_path": "./packages/dbus-1.16.2-1.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "libndp-1.9-5.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(fedora)",
+      "package_path": "./packages/libndp-1.9-5.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "NetworkManager-libnm-1:1.56.1-2.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(updates)",
+      "package_path": "./packages/NetworkManager-libnm-1.56.1-2.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "openssh-server-10.2p1-14.fc44.aarch64",
+      "action": "Install",
+      "reason": "User",
+      "repo_id": "@stored_transaction(updates)",
+      "package_path": "./packages/openssh-server-10.2p1-14.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "openssh-10.2p1-14.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(updates)",
+      "package_path": "./packages/openssh-10.2p1-14.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "dracut-108-8.fc44.aarch64",
+      "action": "Install",
+      "reason": "User",
+      "repo_id": "@stored_transaction(updates)",
+      "package_path": "./packages/dracut-108-8.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "kmod-libs-34.2-4.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(fedora)",
+      "package_path": "./packages/kmod-libs-34.2-4.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "libkcapi-hmaccalc-1.5.0-7.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(fedora)",
+      "package_path": "./packages/libkcapi-hmaccalc-1.5.0-7.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "procps-ng-4.0.6-1.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(fedora)",
+      "package_path": "./packages/procps-ng-4.0.6-1.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "libkcapi-hasher-1.5.0-7.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(fedora)",
+      "package_path": "./packages/libkcapi-hasher-1.5.0-7.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "libkcapi-1.5.0-7.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(fedora)",
+      "package_path": "./packages/libkcapi-1.5.0-7.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "systemd-259.9-1.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(updates)",
+      "package_path": "./packages/systemd-259.9-1.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "dbus-broker-37-8.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(fedora)",
+      "package_path": "./packages/dbus-broker-37-8.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "systemd-shared-259.9-1.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(updates)",
+      "package_path": "./packages/systemd-shared-259.9-1.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "dbus-common-1:1.16.2-1.fc44.noarch",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(fedora)",
+      "package_path": "./packages/dbus-common-1.16.2-1.fc44.noarch.rpm"
+    },
+    {
+      "nevra": "systemd-udev-259.9-1.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(updates)",
+      "package_path": "./packages/systemd-udev-259.9-1.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "util-linux-2.41.5-1.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(updates)",
+      "package_path": "./packages/util-linux-2.41.5-1.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "libfdisk-2.41.5-1.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(updates)",
+      "package_path": "./packages/libfdisk-2.41.5-1.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "liblastlog2-2.41.5-1.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(updates)",
+      "package_path": "./packages/liblastlog2-2.41.5-1.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "libdrm-2.4.134-1.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(updates)",
+      "package_path": "./packages/libdrm-2.4.134-1.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "libpciaccess-0.16-17.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(fedora)",
+      "package_path": "./packages/libpciaccess-0.16-17.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "libpng-2:1.6.58-1.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(updates)",
+      "package_path": "./packages/libpng-1.6.58-1.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "libevdev-1.13.7-1.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(updates)",
+      "package_path": "./packages/libevdev-1.13.7-1.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "hwdata-0.412-1.fc44.noarch",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(updates)",
+      "package_path": "./packages/hwdata-0.412-1.fc44.noarch.rpm"
+    },
+    {
+      "nevra": "expat-2.8.5-1.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(updates)",
+      "package_path": "./packages/expat-2.8.5-1.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "cryptsetup-libs-2.8.8-1.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(updates)",
+      "package_path": "./packages/cryptsetup-libs-2.8.8-1.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "device-mapper-libs-1.02.212-2.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(fedora)",
+      "package_path": "./packages/device-mapper-libs-1.02.212-2.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "device-mapper-1.02.212-2.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(fedora)",
+      "package_path": "./packages/device-mapper-1.02.212-2.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "kbd-2.9.0-4.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(updates)",
+      "package_path": "./packages/kbd-2.9.0-4.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "kbd-legacy-2.9.0-4.fc44.noarch",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(updates)",
+      "package_path": "./packages/kbd-legacy-2.9.0-4.fc44.noarch.rpm"
+    },
+    {
+      "nevra": "kbd-misc-2.9.0-4.fc44.noarch",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(updates)",
+      "package_path": "./packages/kbd-misc-2.9.0-4.fc44.noarch.rpm"
+    },
+    {
+      "nevra": "libseccomp-2.6.1-2.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(updates)",
+      "package_path": "./packages/libseccomp-2.6.1-2.fc44.aarch64.rpm"
+    },
+    {
+      "nevra": "fedora-logos-42.0.1-3.fc44.noarch",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(fedora)",
+      "package_path": "./packages/fedora-logos-42.0.1-3.fc44.noarch.rpm"
     }
   ],
   "version": "1.0"

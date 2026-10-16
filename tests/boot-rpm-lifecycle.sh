@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Historical Rawhide signed-COPR lifecycle fixture (fc46 releases3/4).
+# New Fedora44 package lifecycle checks run from the hardware build recipe.
 # Disposable ARM64 package fixture; no tablet or firmware operations.
 set -Eeuo pipefail
 [[ $# == 1 && -d $1 ]]

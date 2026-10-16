@@ -3,7 +3,7 @@
 device_preflight_help() {
     cat <<'HELP'
 Usage: ./build.sh check-device --pair DIRECTORY [--offline] [--report FILE]
-Verify a delivered stock-ABL pair and inspect one connected Uke transport.
+Verify a built or delivered stock-ABL pair and inspect one connected Uke transport.
 --offline verifies local files without contacting ADB or fastboot.
 --report writes a new JSON report; existing files are never overwritten.
 Exit 0: local checks passed (offline), or bootloader geometry checks passed.
@@ -43,7 +43,7 @@ device_pair_verify() {
         [[ $line =~ ^([a-f0-9]{64})\ \ ([A-Za-z0-9./_-]+)$ ]] || die 'Invalid checksum record'
         hash=${BASH_REMATCH[1]}; file=${BASH_REMATCH[2]}
         case $file in
-            fedora_boot.img|system.img|manifest.json|qemu/result.json|packages.tsv|kernel.config|validation.json|INSTALL.md|README.txt) :;;
+            fedora_boot.img|system.img|manifest.json|qemu/result.json|packages.tsv|kernel.config|validation.json|INSTALL.md|README.txt|system.raw.img|Image|boot.config|initramfs.cpio.gz|Module.symvers|boot-header.json|inputs/profile.json|installed-rpms.tsv|toolchain.txt) :;;
             *) die 'Unexpected checksum path';;
         esac
         [[ ! -v seen[$file] ]] || die 'Duplicate checksum record'
@@ -52,7 +52,14 @@ device_pair_verify() {
         [[ $file != qemu/result.json || ! -L $pair/qemu ]] || die 'Symlinked VM result directory'
         [[ $(sha256sum "$pair/$file" | cut -d ' ' -f1) == "$hash" ]] || die "Delivery checksum failed: $file"
     done < "$pair/SHA256SUMS"
-    [[ $count == 9 ]] || die 'Incomplete delivery checksum set'
+    if [[ $count == 13 ]]; then
+        local expected
+        for expected in fedora_boot.img system.img system.raw.img Image boot.config initramfs.cpio.gz Module.symvers boot-header.json inputs/profile.json installed-rpms.tsv toolchain.txt manifest.json qemu/result.json; do
+            [[ -v seen[$expected] ]] || die "Incomplete build checksum set: $expected"
+        done
+    else
+        [[ $count == 9 ]] || die 'Incomplete delivery checksum set'
+    fi
     local boot system vm
     boot=$(sha256sum "$pair/fedora_boot.img" | cut -d ' ' -f1)
     system=$(sha256sum "$pair/system.img" | cut -d ' ' -f1)
@@ -63,11 +70,18 @@ device_pair_verify() {
         .profile.root_uuid as $uuid |
         .schema_version==1 and .profile.device=="uke" and
         .profile.mode=="stock-abl-ext4-root" and .profile.distribution=="fedora" and
-        .profile.release=="rawhide" and .profile.root_size_mib==3072 and
+        .profile.release=="44" and .profile.root_size_mib==3072 and
         .profile.boot_partition_bytes==$boot_bytes and $boot_bytes==100663296 and
         (.profile.root_uuid|test("^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$")) and
-        (if .profile.root_selector=="PARTNAME-linux" then
-            (.profile.kernel_command_line|contains("root=PARTLABEL=linux ")) and
+        (if (.profile.root_selector=="PARTNAME-linux" or .profile.root_selector=="PARTNAME-userdata") then
+            (.profile.root_partlabel // "linux") as $partlabel |
+            ($partlabel=="linux" or $partlabel=="userdata") and
+            .profile.root_selector==("PARTNAME-"+$partlabel) and
+            (.profile.kernel_command_line|contains("root=PARTLABEL="+$partlabel+" ")) and
+            (if $partlabel=="userdata" then
+                .profile.boot_partition=="boot_a" and .profile.partition_changes==["boot_a","userdata"] and
+                .qemu_evidence.result.root_partition_label=="userdata" and .qemu_evidence.result.root_filesystem_growth==true
+             else true end) and
             (.profile.kernel_command_line|contains("root=UUID=")|not) and
             .qemu_evidence.result.changed_filesystem_uuid_accepted==true and
             .qemu_evidence.result.wrong_filesystem_type_rejected==true and
@@ -77,7 +91,7 @@ device_pair_verify() {
             .qemu_evidence.result.wrong_filesystem_uuid_rejected==true
          else false end) and
         .sha256.boot==$boot and .sha256.system==$system and
-        .checks.module_byte_match==1146 and .checks.privacy==true and
+        .checks.module_byte_match==1144 and .checks.privacy==true and
         .checks.sparse_roundtrip==true and .checks.full_sparse_logical_coverage==true and
         .qemu_tested==true and .qemu_evidence.sha256==$vm and .qemu_evidence.result==$result[0] and
         .qemu_evidence.result.real_ext4_root_transition==true and
@@ -114,7 +128,14 @@ device_preflight_main() {
     [[ -z $report || (! -e $report && ! -L $report) ]] || die 'Report must name a new file'
     device_pair_verify "$pair"
     local mode=offline status=local-pair-verified code=0 product=unknown slot=unknown unlocked=unknown
-    local boot_bytes=null linux_bytes=null physical=unknown userspace=unknown
+    local boot_bytes=null root_bytes=null physical=unknown userspace=unknown
+    local root_partition boot_partition rollback_slot
+    root_partition=$(jq -r '.profile.root_partlabel // "linux"' "$pair/manifest.json")
+    boot_partition=$(jq -r '.profile.boot_partition // "boot_b"' "$pair/manifest.json")
+    [[ $root_partition == linux || $root_partition == userdata ]] || die 'Unsupported root partition'
+    [[ $boot_partition == boot_a || $boot_partition == boot_b ]] || die 'Unsupported boot partition'
+    rollback_slot=b
+    [[ $boot_partition != boot_b ]] || rollback_slot=a
     local serial='' listing='' adb_count=0 fastboot_count=0 row token transport=''
     local -a blockers=()
     if ((offline == 0)); then
@@ -146,42 +167,44 @@ device_preflight_main() {
             case $value in yes|no) unlocked=$value;; esac
             value=$(device_fastboot_value "$serial" is-userspace) || value=''
             case $value in yes|no) userspace=$value;; esac
-            value=$(device_fastboot_value "$serial" is-logical:linux) || value=''
+            value=$(device_fastboot_value "$serial" is-logical:"$root_partition") || value=''
             case $value in no) physical=yes;; yes) physical=no;; esac
-            value=$(device_fastboot_value "$serial" partition-size:boot_b) || value=''
+            value=$(device_fastboot_value "$serial" partition-size:"$boot_partition") || value=''
             boot_bytes=$(device_size_number "$value") || boot_bytes=null
-            value=$(device_fastboot_value "$serial" partition-size:linux) || value=''
-            linux_bytes=$(device_size_number "$value") || linux_bytes=null
+            value=$(device_fastboot_value "$serial" partition-size:"$root_partition") || value=''
+            root_bytes=$(device_size_number "$value") || root_bytes=null
         else
             mode=adb
             # Fixed command: properties and sysfs only. No su/adb root, block
             # writes, captured FDT or unit identifiers enter this probe.
             # Expansion happens in the device shell, never on the host.
             # shellcheck disable=SC2016
-            local probe='printf "product=%s\nslot=%s\nlocked=%s\n" "$(getprop ro.product.device)" "$(getprop ro.boot.slot_suffix)" "$(getprop ro.boot.flash.locked)"; for p in boot_b linux; do n=$(readlink -f /dev/block/by-name/$p 2>/dev/null); n=${n##*/}; case "$n" in ""|*[!A-Za-z0-9_-]*) continue;; esac; if [ -r /sys/class/block/$n/size ]; then printf "%s_sectors=" "$p"; cat /sys/class/block/$n/size; fi; if [ "$p" = linux ] && [ -f /sys/class/block/$n/partition ]; then while IFS= read -r line; do [ "$line" != PARTNAME=linux ] || printf "linux_physical=yes\n"; done < /sys/class/block/$n/uevent; fi; done'
+            local probe='printf "product=%s\nslot=%s\nlocked=%s\n" "$(getprop ro.product.device)" "$(getprop ro.boot.slot_suffix)" "$(getprop ro.boot.flash.locked)"; for p in @BOOT@ @ROOT@; do n=$(readlink -f /dev/block/by-name/$p 2>/dev/null); n=${n##*/}; case "$n" in ""|*[!A-Za-z0-9_-]*) continue;; esac; if [ -r /sys/class/block/$n/size ]; then printf "%s_sectors=" "$p"; cat /sys/class/block/$n/size; fi; if [ "$p" = @ROOT@ ] && [ -f /sys/class/block/$n/partition ]; then while IFS= read -r line; do [ "$line" != PARTNAME=@ROOT@ ] || printf "root_physical=yes\n"; done < /sys/class/block/$n/uevent; fi; done'
+            probe=${probe//@BOOT@/$boot_partition}
+            probe=${probe//@ROOT@/$root_partition}
             listing=''
             if [[ $transport =~ ^[0-9]+$ ]]; then listing=$(timeout 10 adb -t "$transport" shell -T "$probe" 2>/dev/null) || listing=''; fi
             while IFS='=' read -r key value; do
                 value=${value//$'\r'/}
                 case $key:$value in
                     product:uke) product=uke;; slot:_a) slot=a;; slot:_b) slot=b;;
-                    locked:0) unlocked=yes;; locked:1) unlocked=no;; linux_physical:yes) physical=yes;;
-                    boot_b_sectors:*|linux_sectors:*)
+                    locked:0) unlocked=yes;; locked:1) unlocked=no;; root_physical:yes) physical=yes;;
+                    *_sectors:*)
                         if [[ $value =~ ^[0-9]{1,12}$ ]]; then
                             value=$((10#$value * 512))
-                            [[ $key != boot_b_sectors ]] || boot_bytes=$value
-                            [[ $key != linux_sectors ]] || linux_bytes=$value
+                            [[ $key != "${boot_partition}_sectors" ]] || boot_bytes=$value
+                            [[ $key != "${root_partition}_sectors" ]] || root_bytes=$value
                         fi;;
                 esac
             done <<< "$listing"
             blockers+=(bootloader-fastboot-check-required)
         fi
         [[ $mode == unavailable || $product == uke ]] || blockers+=(device-identity-unconfirmed)
-        [[ $mode == unavailable || $slot == a ]] || blockers+=(preserved-Android-A-slot-not-current)
+        [[ $mode == unavailable || $slot == "$rollback_slot" ]] || blockers+=("preserved-Android-${rollback_slot^^}-slot-not-current")
         [[ $mode == unavailable || $unlocked == yes ]] || blockers+=(bootloader-unlock-unconfirmed)
-        [[ $mode == unavailable || ($boot_bytes != null && $boot_bytes -ge 100663296) ]] || blockers+=(boot_b-capacity-unconfirmed)
-        [[ $mode == unavailable || ($linux_bytes != null && $linux_bytes -ge 3221225472) ]] || blockers+=(linux-capacity-unconfirmed)
-        [[ $mode == unavailable || $physical == yes ]] || blockers+=(physical-linux-partition-unconfirmed)
+        [[ $mode == unavailable || ($boot_bytes != null && $boot_bytes -ge 100663296) ]] || blockers+=("$boot_partition-capacity-unconfirmed")
+        [[ $mode == unavailable || ($root_bytes != null && $root_bytes -ge 3221225472) ]] || blockers+=("$root_partition-capacity-unconfirmed")
+        [[ $mode == unavailable || $physical == yes ]] || blockers+=("physical-$root_partition-partition-unconfirmed")
         [[ $mode != fastboot || $userspace == no ]] || blockers+=(bootloader-fastboot-required)
         if ((${#blockers[@]} == 0)); then status=bootloader-geometry-compatible-owner-checks-required; code=0; fi
     fi
@@ -189,14 +212,19 @@ device_preflight_main() {
     blockers_json=$(printf '%s\n' "${blockers[@]}" | jq -Rsc 'split("\n")|map(select(length>0))')
     result=$(jq -n --arg status "$status" --arg mode "$mode" --arg product "$product" --arg slot "$slot" \
         --arg unlocked "$unlocked" --arg physical "$physical" --arg userspace "$userspace" \
-        --argjson boot "$boot_bytes" --argjson linux "$linux_bytes" --argjson blockers "$blockers_json" \
+        --argjson boot "$boot_bytes" --argjson root "$root_bytes" \
+        --arg target_root "$root_partition" --arg target_boot "$boot_partition" --arg rollback "$rollback_slot" --argjson blockers "$blockers_json" \
         --arg manifest "$(sha256sum "$pair/manifest.json" | cut -d ' ' -f1)" \
         '{schema_version:1,status:$status,local_pair_verified:true,manifest_sha256:$manifest,
           transport:$mode,device:$product,current_slot:$slot,unlocked:$unlocked,
-          fastboot_userspace:$userspace,boot_b_bytes:$boot,linux_bytes:$linux,
-          linux_physical_partition:$physical,blockers:$blockers,
-          owner_checks:["Actual pre-test B backups retained","Working Android A and recovery return route","linux target exclusively available for Fedora"],
-          boot_tested:false,hardware_tested:false,device_write_executed:false}')
+          fastboot_userspace:$userspace,boot_partition:$target_boot,root_partition:$target_root,
+          boot_bytes:$boot,root_bytes:$root,root_physical_partition:$physical,blockers:$blockers,
+          owner_checks:[("Original "+$target_boot+" backup retained"),
+            ("Android slot "+$rollback+" boot images preserved; OEM restore and data backups available"),
+            (if $target_root=="userdata" then "Replacing userdata destroys shared Android data; Android rollback requires userdata restoration" else "linux target exclusively available for Fedora" end)],
+          boot_tested:false,hardware_tested:false,device_write_executed:false} +
+          {($target_boot+"_bytes"):$boot,($target_root+"_bytes"):$root} +
+          (if $target_root=="linux" then {linux_physical_partition:$physical} else {} end)')
     if [[ -n $report ]]; then
         (umask 077; set -o noclobber; printf '%s\n' "$result" > "$report") || die 'Cannot create a new private report'
     fi

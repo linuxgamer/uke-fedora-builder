@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Historical Rawhide signed-COPR fixture: recorded fc46 kernel1.3 ->1.4.
+# Fedora44 lifecycle evidence is produced by uke-mainline-linux/build.sh.
 # Host-only, disposable AArch64 userspace. The recorded console base has 1.3.
 # Check an actual signed 1.4 upgrade, removal, fresh install and second removal.
 set -Eeuo pipefail

@@ -1,89 +1,89 @@
 {
-  "rpms":[
+  "rpms": [
     {
-      "nevra":"selinux-policy-targeted-45.20-1.fc46.noarch",
-      "action":"Install",
-      "reason":"User",
-      "repo_id":"@stored_transaction(ukeimagefedora)",
-      "package_path":".\/packages\/selinux-policy-targeted-45.20-1.fc46.noarch.rpm"
+      "nevra": "e2fsprogs-1.47.3-4.fc44.aarch64",
+      "action": "Install",
+      "reason": "User",
+      "repo_id": "@stored_transaction(fedora)",
+      "package_path": "./packages/e2fsprogs-1.47.3-4.fc44.aarch64.rpm"
     },
     {
-      "nevra":"policycoreutils-3.11-2.fc45.aarch64",
-      "action":"Install",
-      "reason":"User",
-      "repo_id":"@stored_transaction(ukeimagefedora)",
-      "package_path":".\/packages\/policycoreutils-3.11-2.fc45.aarch64.rpm"
+      "nevra": "dosfstools-4.2-18.fc44.aarch64",
+      "action": "Install",
+      "reason": "User",
+      "repo_id": "@stored_transaction(fedora)",
+      "package_path": "./packages/dosfstools-4.2-18.fc44.aarch64.rpm"
     },
     {
-      "nevra":"e2fsprogs-1.47.4-2.fc45.aarch64",
-      "action":"Install",
-      "reason":"User",
-      "repo_id":"@stored_transaction(ukeimagefedora)",
-      "package_path":".\/packages\/e2fsprogs-1.47.4-2.fc45.aarch64.rpm"
+      "nevra": "diffutils-3.12-5.fc44.aarch64",
+      "action": "Install",
+      "reason": "User",
+      "repo_id": "@stored_transaction(fedora)",
+      "package_path": "./packages/diffutils-3.12-5.fc44.aarch64.rpm"
     },
     {
-      "nevra":"dosfstools-4.2-28.fc46.aarch64",
-      "action":"Install",
-      "reason":"User",
-      "repo_id":"@stored_transaction(ukeimagefedora)",
-      "package_path":".\/packages\/dosfstools-4.2-28.fc46.aarch64.rpm"
+      "nevra": "e2fsprogs-libs-1.47.3-4.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(fedora)",
+      "package_path": "./packages/e2fsprogs-libs-1.47.3-4.fc44.aarch64.rpm"
     },
     {
-      "nevra":"systemd-boot-unsigned-262-3.fc46.aarch64",
-      "action":"Install",
-      "reason":"User",
-      "repo_id":"@stored_transaction(ukeimagefedora)",
-      "package_path":".\/packages\/systemd-boot-unsigned-262-3.fc46.aarch64.rpm"
+      "nevra": "libss-1.47.3-4.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(fedora)",
+      "package_path": "./packages/libss-1.47.3-4.fc44.aarch64.rpm"
     },
     {
-      "nevra":"selinux-policy-45.20-1.fc46.noarch",
-      "action":"Install",
-      "reason":"Dependency",
-      "repo_id":"@stored_transaction(ukeimagefedora)",
-      "package_path":".\/packages\/selinux-policy-45.20-1.fc46.noarch.rpm"
+      "nevra": "selinux-policy-targeted-44.11-1.fc44.noarch",
+      "action": "Install",
+      "reason": "User",
+      "repo_id": "@stored_transaction(updates)",
+      "package_path": "./packages/selinux-policy-targeted-44.11-1.fc44.noarch.rpm"
     },
     {
-      "nevra":"diffutils-3.12-6.fc45.aarch64",
-      "action":"Install",
-      "reason":"Dependency",
-      "repo_id":"@stored_transaction(ukeimagefedora)",
-      "package_path":".\/packages\/diffutils-3.12-6.fc45.aarch64.rpm"
+      "nevra": "selinux-policy-44.11-1.fc44.noarch",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(updates)",
+      "package_path": "./packages/selinux-policy-44.11-1.fc44.noarch.rpm"
     },
     {
-      "nevra":"libselinux-utils-3.11-5.fc46.aarch64",
-      "action":"Install",
-      "reason":"Dependency",
-      "repo_id":"@stored_transaction(ukeimagefedora)",
-      "package_path":".\/packages\/libselinux-utils-3.11-5.fc46.aarch64.rpm"
+      "nevra": "policycoreutils-3.11-2.fc44.aarch64",
+      "action": "Install",
+      "reason": "User",
+      "repo_id": "@stored_transaction(updates)",
+      "package_path": "./packages/policycoreutils-3.11-2.fc44.aarch64.rpm"
     },
     {
-      "nevra":"e2fsprogs-libs-1.47.4-2.fc45.aarch64",
-      "action":"Install",
-      "reason":"Dependency",
-      "repo_id":"@stored_transaction(ukeimagefedora)",
-      "package_path":".\/packages\/e2fsprogs-libs-1.47.4-2.fc45.aarch64.rpm"
+      "nevra": "libselinux-utils-3.11-2.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(updates)",
+      "package_path": "./packages/libselinux-utils-3.11-2.fc44.aarch64.rpm"
     },
     {
-      "nevra":"fuse3-libs-3.18.3-1.fc46.aarch64",
-      "action":"Install",
-      "reason":"Dependency",
-      "repo_id":"@stored_transaction(ukeimagefedora)",
-      "package_path":".\/packages\/fuse3-libs-3.18.3-1.fc46.aarch64.rpm"
+      "nevra": "rpm-plugin-selinux-6.0.2-1.fc44.aarch64",
+      "action": "Install",
+      "reason": "User",
+      "repo_id": "@stored_transaction(updates)",
+      "package_path": "./packages/rpm-plugin-selinux-6.0.2-1.fc44.aarch64.rpm"
     },
     {
-      "nevra":"libss-1.47.4-2.fc45.aarch64",
-      "action":"Install",
-      "reason":"Dependency",
-      "repo_id":"@stored_transaction(ukeimagefedora)",
-      "package_path":".\/packages\/libss-1.47.4-2.fc45.aarch64.rpm"
+      "nevra": "systemd-boot-unsigned-259.9-1.fc44.aarch64",
+      "action": "Install",
+      "reason": "User",
+      "repo_id": "@stored_transaction(updates)",
+      "package_path": "./packages/systemd-boot-unsigned-259.9-1.fc44.aarch64.rpm"
     },
     {
-      "nevra":"rpm-plugin-selinux-6.1.0-1.fc46.aarch64",
-      "action":"Install",
-      "reason":"Dependency",
-      "repo_id":"@stored_transaction(ukeimagefedora)",
-      "package_path":".\/packages\/rpm-plugin-selinux-6.1.0-1.fc46.aarch64.rpm"
+      "nevra": "fuse3-libs-3.18.3-1.fc44.aarch64",
+      "action": "Install",
+      "reason": "Dependency",
+      "repo_id": "@stored_transaction(updates)",
+      "package_path": "./packages/fuse3-libs-3.18.3-1.fc44.aarch64.rpm"
     }
   ],
-  "version":"1.0"
+  "version": "1.0"
 }

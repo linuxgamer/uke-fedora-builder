@@ -7,8 +7,8 @@ set -Eeuo pipefail
 kernel=$1 initrd=$2 out=$3
 builder=$4
 release=7.2.9-senemos-uke
-image=$kernel/artifacts/fedora-rawhide/7.2.9/output/Image
-modules=$kernel/build/fedora-rawhide/7.2.9/extracted/usr/lib/modules/$release
+image=$kernel/artifacts/fedora-44/7.2.9/output/Image
+modules=$kernel/build/fedora-44/7.2.9/extracted/usr/lib/modules/$release
 [[ -s $image && -d $modules && -x $initrd/usr/bin/systemctl ]]
 mkdir -p "$out"
 cp -a "$initrd" "$out/root"

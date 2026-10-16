@@ -1,6 +1,18 @@
 [
-  {"file":"dracut-111-4.fc46.aarch64.rpm","sha256":"238700de19f7a415d0be309248258940e0b79727f0bde4a0cd371646c5188830"},
-  {"file":"kbd-2.10.0-3.fc46.aarch64.rpm","sha256":"61d67855568dd833b60bafa05b780c772fd1996511d061b2da058a40a6fd9832"},
-  {"file":"xkeyboard-config-2.48-4.fc45.noarch.rpm","sha256":"1e2933eca6a7c8bf7e39e071299cb4a4cd712f43e8228474c91515c6dbc72ae7"},
-  {"file":"libxkbcommon-1.13.1-4.fc46.aarch64.rpm","sha256":"9ffa7a09728604ff701d48a72541682889d2e6c4f7dbc0a0833af0011081c1df"}
+  {
+    "file": "dracut-108-8.fc44.aarch64.rpm",
+    "sha256": "d503e00739a79e6b326804183da66a7e62ae3cd5663b93777e2b75374bd6219b"
+  },
+  {
+    "file": "kbd-2.9.0-4.fc44.aarch64.rpm",
+    "sha256": "9c4c34ea6ccc8a69e619e392c41b7aee4f0f9117e33dfdfcbd10271dd17a8619"
+  },
+  {
+    "file": "xkeyboard-config-2.47-1.fc44.noarch.rpm",
+    "sha256": "9f8656378173b895203e8ea66227b23087dd494b031b274ef88090812c257a54"
+  },
+  {
+    "file": "libxkbcommon-1.13.1-2.fc44.aarch64.rpm",
+    "sha256": "f8b7b514c864857cde32b7ca473319dbdefdd2013c5dfb1c422666ae5c589a0e"
+  }
 ]

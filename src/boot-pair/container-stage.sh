@@ -10,7 +10,7 @@ verify() { [[ $(sha256sum "$1" | cut -d ' ' -f1) == "$2" ]]; }
 (cd /job/inputs; sha256sum -c SHA256SUMS)
 case $stage in
 source)
-    top=/job/kernel/build/fedora-rawhide/7.2.9/rpmbuild
+    top=/job/kernel/build/fedora-44/7.2.9/rpmbuild
     mkdir -p "$top/SOURCES" "$top/SPECS" /job/dt
     cp /job/inputs/SOURCES/* "$top/SOURCES/"
     cp /job/inputs/kernel.spec "$top/SPECS/kernel.spec"
@@ -56,7 +56,7 @@ audit-initramfs)
     [[ -s /job/initramfs-root/usr/lib/systemd/system/initrd-switch-root.service ]]
     [[ -L /job/initramfs-root/usr/lib/systemd/system/sysroot.mount.requires/uke-root-guard.service ]]
     [[ ! -e /job/initramfs-root/etc/uke-boot-pair.uuid ]]
-    grep -F 'root=PARTLABEL=linux' /job/initramfs-root/etc/cmdline.d/*.conf
+    grep -F "root=PARTLABEL=$(jq -r .root_partlabel "$profile") " /job/initramfs-root/etc/cmdline.d/*.conf
     [[ -s /job/initramfs-root/usr/lib/systemd/system/uke-cdc-acm.service ]]
     [[ -L /job/initramfs-root/usr/lib/systemd/system/initrd.target.wants/uke-cdc-shell.service ]]
     [[ -s /job/initramfs-root/usr/lib/systemd/system/uke-cdc-shell.service.d/initrd.conf ]]
@@ -107,7 +107,7 @@ audit-initramfs)
     done < <(find /job/initramfs-root -type f -print0)
     ;;
 kernel)
-    top=/job/kernel/build/fedora-rawhide/7.2.9/rpmbuild
+    top=/job/kernel/build/fedora-44/7.2.9/rpmbuild
     out=$top/kernel-out
     source=$top/BUILD/senemos-uke-linux-kernel-mainline-7.2.9-build/linux-7.2.9
     cp /job/inputs/base.config "$out/.config"

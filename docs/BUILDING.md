@@ -32,3 +32,13 @@ symbols/CRCs and missing tables while allowing module-only export changes.
 
 See [Core image construction](IMAGES.md) for the locked runtime closure,
 ESP32 debug profile, local filesystem checks and unresolved device release gates.
+
+## Root partition
+
+`core` and `boot-pair` default to the entire Android `userdata` partition.
+Use `--root-partlabel linux` for the previous dedicated-partition layout.
+The stock pair targets `boot_a`, uses `root=PARTLABEL=userdata` and grows its
+EXT4 filesystem to the partition size on first boot. These options build local
+files; they do not install to a device. Installing replaces Android user data;
+retain data backups, original boot images and matching OEM recovery firmware.
+Android slot B still needs restored userdata before it can serve as rollback.

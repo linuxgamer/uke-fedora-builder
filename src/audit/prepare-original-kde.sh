@@ -12,15 +12,14 @@ jq -e '
   ([.rpms[].package_path] | length == (unique|length)) and
   all(.rpms[]; .action=="Install" and
     (.package_path|test("^\\./packages/[A-Za-z0-9+_.~^-]+\\.rpm$")) and
-    (.repo_id=="@stored_transaction(rawhide)" or
-     .repo_id=="@stored_transaction(fedora-cisco-openh264)" or
-     .repo_id=="@stored_transaction(copr-uke-development)")) and
+    (.repo_id=="@stored_transaction(fedora)" or
+     .repo_id=="@stored_transaction(updates)" or
+     .repo_id=="@stored_transaction(fedora-cisco-openh264)")) and
   ([.rpms[]|select(.reason=="User")|.nevra|capture("^(?<name>.+)-[0-9][^-]*-[^-]+\\.(aarch64|noarch)$").name]|sort)
     == ["konsole","kwin","plasma-desktop","plasma-workspace","sddm"]
 ' "$plan" >/dev/null
-mkdir -p "$out/original" "$out/native" "$out/fedora-keydb" "$out/copr-keydb"
-rpmkeys --dbpath "$out/fedora-keydb" --import "$builder/configs/keys/fedora-46.asc"
-rpmkeys --dbpath "$out/copr-keydb" --import "$builder/configs/keys/uke-copr.asc"
+mkdir -p "$out/original" "$out/native" "$out/fedora-keydb"
+rpmkeys --dbpath "$out/fedora-keydb" --import "$builder/configs/keys/fedora-44.asc"
 while IFS=$'\t' read -r relative expected repo; do
   package=$transaction/$relative
   [[ -f $package && ! -L $package ]]
@@ -29,12 +28,7 @@ while IFS=$'\t' read -r relative expected repo; do
   destination=$out/original
   keydb=$out/fedora-keydb
   name=$(rpm -qp --qf '%{NAME}' "$package")
-  if [[ $repo == '@stored_transaction(copr-uke-development)' ]]; then
-    # Admit only the reviewed native support packages from the COPR transaction.
-    case $name in atk|at-spi2-core|at-spi2-atk|libwacom|libwacom-data|libaccounts-glib) :;; *) exit 1;; esac
-    destination=$out/native
-    keydb=$out/copr-keydb
-  elif [[ $repo == '@stored_transaction(fedora-cisco-openh264)' ]]; then
+  if [[ $repo == '@stored_transaction(fedora-cisco-openh264)' ]]; then
     [[ $name == openh264 ]]
   fi
   signature=$(rpmkeys --dbpath "$keydb" --checksig "$package") || { printf '%s\n' "$signature" >&2; exit 1; }

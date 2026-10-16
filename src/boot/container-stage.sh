@@ -26,7 +26,7 @@ prepare)
     (cd /job/initramfs-root; gzip -cd /job/inputs/core-initramfs.img | cpio -idm --quiet --no-absolute-filenames)
     module_root=/job/initramfs-root/usr/lib/modules/$release
     # Retain dracut's dependency-closed module selection, replacing every
-    # module by the bytes from the qualified full 13-patch build.
+    # module by the bytes from the qualified full 44-patch build.
     while IFS= read -r -d '' file; do
         relative=${file#"$module_root/"}
         source=/job/modules-payload/usr/lib/modules/$release/$relative
@@ -61,7 +61,7 @@ prepare)
     done < <(find /job/initramfs-root -type f -print0)
     find /job/initramfs-root -exec touch -h -d '@1791024250' {} +
     (cd /job/initramfs-root; find . -print0 | sort -z | cpio --null --quiet --reproducible --owner=0:0 -o -H newc) | gzip -n > /job/initramfs.cpio.gz
-    printf '%s\n' 'Pinned template, initramfs, 13-patch module selection and native payload verified'
+    printf '%s\n' 'Pinned template, initramfs, 44-patch module selection and native payload verified'
     ;;
 kernel)
     # Keep the original Kbuild absolute paths so qualified cached objects can
@@ -70,11 +70,11 @@ kernel)
     # A prior qualified boot cache may use /job/kernel. Both bind paths refer
     # to the isolated copy; retain the recorded path instead of invalidating
     # every compiler command. Reject every other source prefix.
-    cached_source=$(readlink /work/kernel/build/fedora-rawhide/7.2.9/rpmbuild/kernel-out/source)
-    suffix=build/fedora-rawhide/7.2.9/rpmbuild/BUILD/senemos-uke-linux-kernel-mainline-7.2.9-build/linux-7.2.9
+    cached_source=$(readlink /work/kernel/build/fedora-44/7.2.9/rpmbuild/kernel-out/source)
+    suffix=build/fedora-44/7.2.9/rpmbuild/BUILD/senemos-uke-linux-kernel-mainline-7.2.9-build/linux-7.2.9
     case $cached_source in
-        /work/kernel/"$suffix") top=/work/kernel/build/fedora-rawhide/7.2.9/rpmbuild;;
-        /job/kernel/"$suffix") top=/job/kernel/build/fedora-rawhide/7.2.9/rpmbuild;;
+        /work/kernel/"$suffix") top=/work/kernel/build/fedora-44/7.2.9/rpmbuild;;
+        /job/kernel/"$suffix") top=/job/kernel/build/fedora-44/7.2.9/rpmbuild;;
         *) echo 'Unrecognized cached Kbuild source path' >&2; exit 1;;
     esac
     out=$top/kernel-out
@@ -160,7 +160,7 @@ pack)
         --arg config "$(sha256sum /job/boot.config | cut -d ' ' -f1)" \
         --arg recipe "$(cat /job/inputs/recipe-sha256)" \
         --arg codec "$(sha256sum /job/boot-image | cut -d ' ' -f1)" \
-        '{schema_version:1,product:"fedora_boot.img",status:"boot-format-and-payload-candidate",recipe_sha256:$recipe,host_codec_sha256:$codec,profile:$profile[0],header:$header[0],sha256:{boot:$image,kernel:$kernel,initramfs:$initramfs,config:$config},checks:{android_v4_roundtrip:true,pinned_source_preparation:true,applied_patch_count:13,embedded_initramfs_byte_match:true,core_export_abi_match:true,module_payload_reused:true,native_aarch64_payload:true,privacy:true},qemu_tested:false,boot_tested:false,hardware_tested:false,flash_executed:false}' > /job/manifest.json
+        '{schema_version:1,product:"fedora_boot.img",status:"boot-format-and-payload-candidate",recipe_sha256:$recipe,host_codec_sha256:$codec,profile:$profile[0],header:$header[0],sha256:{boot:$image,kernel:$kernel,initramfs:$initramfs,config:$config},checks:{android_v4_roundtrip:true,pinned_source_preparation:true,applied_patch_count:44,embedded_initramfs_byte_match:true,core_export_abi_match:true,module_payload_reused:true,native_aarch64_payload:true,privacy:true},qemu_tested:false,boot_tested:false,hardware_tested:false,flash_executed:false}' > /job/manifest.json
     (cd /job; sha256sum manifest.json >> SHA256SUMS; sha256sum -c SHA256SUMS)
     ;;
 *) exit 2;;

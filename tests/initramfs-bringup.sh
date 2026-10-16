@@ -8,16 +8,22 @@ phase=$2
 [[ $phase == assemble || $phase == verify-arm64 || $phase == verify-host ]]
 release=7.2.9-senemos-uke
 if [[ $phase == assemble ]]; then
-rpmkeys --import /builder/configs/keys/uke-copr.asc
-packages=(/builder/build/images/rpm-cache/uke-boot-integration-0.1.0-4.fc46.aarch64.rpm
-    /builder/build/images/rpm-cache/uke-esp32-cdc-0.1.0-4.fc46.aarch64.rpm)
-for package in "${packages[@]}"; do rpmkeys --checksig "$package" | grep -F 'signatures OK'; done
-dnf -y --disablerepo='*' --setopt=localpkg_gpgcheck=1 install "${packages[@]}"
+packages=(/builder/build/images/rpm-cache/uke-boot-integration-0.1.0-13.fc44.aarch64.rpm
+    /builder/build/images/rpm-cache/uke-esp32-cdc-0.1.0-13.fc44.aarch64.rpm)
+# These local development RPMs have no COPR signature; admit their exact
+# configured SHA256 plus the RPM payload digest before installing offline.
+for package in "${packages[@]}"; do
+    expected=$(jq -er --arg file "${package##*/}" '.[]|select(.file==$file)|.sha256' \
+        /builder/configs/boot/uke-boot-pair-support-rpms.json)
+    printf '%s  %s\n' "$expected" "$package" | sha256sum -c -
+    rpmkeys --checksig --nosignature "$package" | grep -F 'digests OK'
+done
+dnf -y --disablerepo='*' --setopt=localpkg_gpgcheck=0 install "${packages[@]}"
 mkdir -p /usr/lib/dracut/modules.d/91uke-bringup
 install -m644 /builder/src/image/dracut/91uke-bringup/* /usr/lib/dracut/modules.d/91uke-bringup/
 chmod 755 /usr/lib/dracut/modules.d/91uke-bringup/module-setup.sh
 dracut --force --no-hostonly --no-hostonly-cmdline --no-early-microcode \
-    --gzip --add uke-bringup --filesystems ext4 \
+    --gzip --add "uke-bringup" --filesystems ext4 \
     --omit 'network plymouth crypt systemd-cryptsetup syslog lvm mdraid btrfs i18n' \
     "$output/initramfs.img" "$release"
 mkdir "$output/root"

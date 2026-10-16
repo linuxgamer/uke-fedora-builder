@@ -1,6 +1,6 @@
 [Unit]
 Description=Record the real Fedora root transition
-After=local-fs.target
+After=local-fs.target systemd-growfs-root.service
 Before=uke-screen-shell.service
 
 [Service]

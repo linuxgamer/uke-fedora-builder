@@ -18,7 +18,7 @@ jq -n --arg boot "$(sha256sum "$pair/fedora_boot.img" | cut -d ' ' -f1)" \
     --arg system "$(sha256sum "$pair/system.img" | cut -d ' ' -f1)" \
     --arg vm "$(sha256sum "$pair/qemu/result.json" | cut -d ' ' -f1)" \
     --slurpfile result "$pair/qemu/result.json" \
-    '{schema_version:1,profile:{device:"uke",mode:"stock-abl-ext4-root",distribution:"fedora",release:"rawhide",root_size_mib:3072,boot_partition_bytes:100663296,root_uuid:"03ea9569-c96d-cb08-0a64-53c6f816aa32",kernel_command_line:"root=UUID=03ea9569-c96d-cb08-0a64-53c6f816aa32 rw"},sha256:{boot:$boot,system:$system},checks:{module_byte_match:1146,privacy:true,sparse_roundtrip:true,full_sparse_logical_coverage:true},qemu_tested:true,qemu_evidence:{sha256:$vm,result:$result[0]},boot_tested:false,hardware_tested:false,flash_executed:false}' > "$pair/manifest.json"
+    '{schema_version:1,profile:{device:"uke",mode:"stock-abl-ext4-root",distribution:"fedora",release:"44",root_size_mib:3072,boot_partition_bytes:100663296,root_uuid:"03ea9569-c96d-cb08-0a64-53c6f816aa32",kernel_command_line:"root=UUID=03ea9569-c96d-cb08-0a64-53c6f816aa32 rw"},sha256:{boot:$boot,system:$system},checks:{module_byte_match:1144,privacy:true,sparse_roundtrip:true,full_sparse_logical_coverage:true},qemu_tested:true,qemu_evidence:{sha256:$vm,result:$result[0]},boot_tested:false,hardware_tested:false,flash_executed:false}' > "$pair/manifest.json"
 cp "$pair/manifest.json" "$fixture/original-manifest"
 checksums() { (cd "$pair"; sha256sum fedora_boot.img system.img manifest.json qemu/result.json packages.tsv kernel.config validation.json INSTALL.md README.txt > SHA256SUMS); }
 checksums
@@ -39,12 +39,12 @@ fi
 key=$4
 case $key in
     product) value=uke; [[ $PREFLIGHT_CASE != foreign ]] || value=other;;
-    current-slot) value=a; [[ $PREFLIGHT_CASE != slot-b ]] || value=b;;
+    current-slot) value=${PREFLIGHT_SLOT:-a}; [[ $PREFLIGHT_CASE != slot-b ]] || value=b;;
     unlocked) value=yes; [[ $PREFLIGHT_CASE != locked ]] || value=no;;
     is-userspace) value=no; [[ $PREFLIGHT_CASE != fastbootd ]] || value=yes;;
-    is-logical:linux) value=no; [[ $PREFLIGHT_CASE != logical ]] || value=yes;;
-    partition-size:boot_b) value=0x06000000; [[ $PREFLIGHT_CASE != small-boot ]] || value=0x1000;;
-    partition-size:linux)
+    is-logical:linux|is-logical:userdata) value=no; [[ $PREFLIGHT_CASE != logical ]] || value=yes;;
+    partition-size:boot_b|partition-size:boot_a) value=0x06000000; [[ $PREFLIGHT_CASE != small-boot ]] || value=0x1000;;
+    partition-size:linux|partition-size:userdata)
         value=0xc0000000
         case $PREFLIGHT_CASE in missing-linux) exit 1;; small-linux) value=1048576;; huge) value=999999999999999999999999999999;; esac;;
     *) exit 99;;
@@ -72,7 +72,7 @@ if [[ $* == 'devices -l' ]]; then
 fi
 [[ $# == 5 && $1 == -t && $2 == 7 && $3 == shell && $4 == -T ]] || exit 99
 [[ $5 == *'/sys/class/block/'* && $5 != *'su '* && $5 != *'dd '* ]] || exit 99
-printf 'product=uke\nslot=_a\nlocked=0\nboot_b_sectors=196608\nlinux_sectors=6291456\nlinux_physical=yes\n'
+printf 'product=uke\nslot=_a\nlocked=0\nboot_b_sectors=196608\nlinux_sectors=6291456\nroot_physical=yes\n'
 MOCK
 chmod +x "$fixture/bin/adb" "$fixture/bin/fastboot"
 export PATH="$fixture/bin:$PATH" PREFLIGHT_LOG=$fixture/commands PREFLIGHT_CASE=none
@@ -91,8 +91,10 @@ run_check 0 --offline
 cp "$pair/qemu/result.json" "$fixture/original-qemu"
 jq 'del(.wrong_filesystem_uuid_rejected) | .changed_filesystem_uuid_accepted=true | .wrong_filesystem_type_rejected=true | .duplicate_partition_name_rejected=true' "$fixture/original-qemu" > "$pair/qemu/result.json"
 name_manifest() {
-    jq --slurpfile result "$pair/qemu/result.json" --arg vm "$(sha256sum "$pair/qemu/result.json" | cut -d ' ' -f1)" \
-        '.profile.root_selector="PARTNAME-linux" | .profile.kernel_command_line="root=PARTLABEL=linux rw" |
+    local label=${1:-linux} boot=boot_b
+    [[ $label != userdata ]] || boot=boot_a
+    jq --arg label "$label" --arg boot "$boot" --slurpfile result "$pair/qemu/result.json" --arg vm "$(sha256sum "$pair/qemu/result.json" | cut -d ' ' -f1)" \
+        '.profile.root_selector=("PARTNAME-"+$label) | .profile.root_partlabel=$label | .profile.boot_partition=$boot | .profile.partition_changes=[$boot,$label] | .profile.kernel_command_line=("root=PARTLABEL="+$label+" rw") |
          .qemu_evidence={sha256:$vm,result:$result[0]}' "$fixture/original-manifest" > "$pair/manifest.json"
     checksums
 }
@@ -109,6 +111,25 @@ for field in changed_filesystem_uuid_accepted wrong_filesystem_type_rejected dup
     run_check 1 --offline
     cp "$fixture/name-qemu" "$pair/qemu/result.json"
 done
+# Userdata must bind the new target and VM evidence; the preserved slot is B.
+jq '.root_partition_label="userdata" | .root_filesystem_growth=true' "$pair/qemu/result.json" > "$fixture/userdata-qemu"
+cp "$fixture/userdata-qemu" "$pair/qemu/result.json"
+name_manifest userdata
+run_check 0 --offline
+PREFLIGHT_CASE=good PREFLIGHT_SLOT=b run_check 0
+jq -e '.root_partition=="userdata" and .boot_partition=="boot_a" and .root_bytes==3221225472' "$fixture/result.json" >/dev/null
+rg -F 'getvar partition-size:userdata' "$PREFLIGHT_LOG" >/dev/null
+rg -F 'getvar partition-size:boot_a' "$PREFLIGHT_LOG" >/dev/null
+PREFLIGHT_CASE=good PREFLIGHT_SLOT=a run_check 2
+jq '.profile.kernel_command_line="root=PARTLABEL=linux rw"' "$pair/manifest.json" > "$fixture/wrong-target"
+mv "$fixture/wrong-target" "$pair/manifest.json"
+checksums
+run_check 1 --offline
+name_manifest userdata
+jq '.root_partition_label="linux"' "$pair/qemu/result.json" > "$fixture/wrong-vm-target"
+mv "$fixture/wrong-vm-target" "$pair/qemu/result.json"
+name_manifest userdata
+run_check 1 --offline
 cp "$fixture/original-qemu" "$pair/qemu/result.json"
 cp "$fixture/original-manifest" "$pair/manifest.json"
 checksums

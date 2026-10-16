@@ -1,22 +1,22 @@
 [
   {
-    "file": "senemos-uke-linux-kernel-mainline-7.2.9-1.5.fc46.aarch64.rpm",
-    "sha256": "d71f9cfb93bc635b6fe9857e0c5ac7d941899f46413bd35094c8dc6320a057f3",
-    "nevra": "senemos-uke-linux-kernel-mainline-0:7.2.9-1.5.fc46.aarch64"
+    "file": "senemos-uke-linux-kernel-mainline-7.2.9-1.39.fc44.aarch64.rpm",
+    "sha256": "b20145b03d2ec7a3779bf000e2a8d5556ed176103435c4101c50cf40093afb6e",
+    "nevra": "senemos-uke-linux-kernel-mainline-0:7.2.9-1.39.fc44.aarch64"
   },
   {
-    "file": "senemos-uke-linux-kernel-mainline-core-7.2.9-1.5.fc46.aarch64.rpm",
-    "sha256": "f0a87256666f501fea8d324e6cd4b4205e3e42cc7a7b5581440534b29a2908cd",
-    "nevra": "senemos-uke-linux-kernel-mainline-core-0:7.2.9-1.5.fc46.aarch64"
+    "file": "senemos-uke-linux-kernel-mainline-core-7.2.9-1.39.fc44.aarch64.rpm",
+    "sha256": "2a0f0e42ccd16ddf91fe3245f14c9c15c868cc5ea652e20e516f2babaa69bc7e",
+    "nevra": "senemos-uke-linux-kernel-mainline-core-0:7.2.9-1.39.fc44.aarch64"
   },
   {
-    "file": "senemos-uke-linux-kernel-mainline-dtbs-7.2.9-1.5.fc46.aarch64.rpm",
-    "sha256": "9b4ca266bee7772f8d5e700a7a5053cc63114955aa6caf1adf52d8f6e462a565",
-    "nevra": "senemos-uke-linux-kernel-mainline-dtbs-0:7.2.9-1.5.fc46.aarch64"
+    "file": "senemos-uke-linux-kernel-mainline-dtbs-7.2.9-1.39.fc44.aarch64.rpm",
+    "sha256": "17708dad3abc979e87a3566082b577f8e9dcff31dd38a899b224359039de60e7",
+    "nevra": "senemos-uke-linux-kernel-mainline-dtbs-0:7.2.9-1.39.fc44.aarch64"
   },
   {
-    "file": "senemos-uke-linux-kernel-mainline-modules-7.2.9-1.5.fc46.aarch64.rpm",
-    "sha256": "38bb5e7732dd3a66215720de46cccb2c2ac685fdb44b1ab9e97704798f65fb63",
-    "nevra": "senemos-uke-linux-kernel-mainline-modules-0:7.2.9-1.5.fc46.aarch64"
+    "file": "senemos-uke-linux-kernel-mainline-modules-7.2.9-1.39.fc44.aarch64.rpm",
+    "sha256": "49d8c34c952735beb88a2dc81980ac58e7386e29511cf20a89183141df053535",
+    "nevra": "senemos-uke-linux-kernel-mainline-modules-0:7.2.9-1.39.fc44.aarch64"
   }
 ]

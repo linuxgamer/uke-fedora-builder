@@ -14,10 +14,11 @@ tar --numeric-owner --same-owner --xattrs --xattrs-include='security.capability'
 packages=(/job/inputs/kernel/*.aarch64.rpm)
 [[ ${#packages[@]} == 4 ]]
 support=(/job/inputs/support/*.aarch64.rpm)
-[[ ${#support[@]} == 2 ]]
-rpmkeys --root "$root" --import /builder/configs/keys/uke-copr.asc
+[[ ${#support[@]} == 3 ]]
+# Locally built development RPMs are admitted by the frozen input SHA256
+# catalog and RPM payload digests; they do not carry the former COPR signature.
 for package in "${packages[@]}" "${support[@]}"; do
-    rpmkeys --root "$root" --checksig "$package" | grep -F 'signatures OK'
+    rpmkeys --root "$root" --checksig --nosignature "$package" | grep -F 'digests OK'
 done
 rpm --root "$root" -Uvh --replacepkgs "${packages[@]}" "${support[@]}"
 rpm --root "$root" --restore senemos-uke-linux-kernel-mainline{,-core,-modules,-dtbs}
@@ -26,7 +27,11 @@ rpm --root "$root" --restore uke-boot-integration uke-esp32-cdc
 rpm --root "$root" -V uke-boot-integration uke-esp32-cdc
 rpm --root "$root" -qa --qf '%{NAME}\t%{VERSION}-%{RELEASE}\t%{ARCH}\n' | sort > /job/installed-rpms.tsv
 bash /builder/src/audit/check-console-session.sh "$root"
-printf 'PARTLABEL=linux / ext4 defaults 0 1\n' > "$root/etc/fstab"
+partlabel=$(sed -n 's/.* root=PARTLABEL=\([^ ]*\).*/\1/p' /job/inputs/kernel-cmdline)
+[[ $partlabel == userdata || $partlabel == linux ]]
+root_options=defaults
+[[ $partlabel != userdata ]] || root_options=defaults,x-systemd.growfs
+printf 'PARTLABEL=%s / ext4 %s 0 1\n' "$partlabel" "$root_options" > "$root/etc/fstab"
 cat /builder/configs/images/uke-persist.fstab >> "$root/etc/fstab"
 install -d -m700 "$root/mnt/vendor/persist"
 profiles=$root/usr/share/senemos/boot/uke
@@ -82,11 +87,20 @@ chroot "$root" /usr/bin/depmod "$release"
 # Temporarily install the exact signed host assembly dependency closure in
 # this disposable native root. Remove it through RPM before target export.
 # Avoid cross-sysroot guesses about upstream dracut hooks.
-rpmkeys --root "$root" --import /builder/configs/keys/fedora-46.asc
+rpmkeys --root "$root" --import /builder/configs/keys/fedora-44.asc
+temporary_rpms=()
+temporary_names=()
 for package in /job/inputs/host-rpms/*.rpm; do
     rpmkeys --root "$root" --checksig "$package" | grep -F 'signatures OK'
+    name=$(rpm -qp --qf '%{NAME}' "$package")
+    if rpm --root "$root" -q "$name" >/dev/null 2>&1; then
+        [[ $(rpm --root "$root" -q --qf '%{NEVRA}' "$name") == "$(rpm -qp --qf '%{NEVRA}' "$package")" ]]
+    else
+        temporary_rpms+=("$package")
+        temporary_names+=("$name")
+    fi
 done
-rpm --root "$root" -Uvh /job/inputs/host-rpms/*.rpm
+if ((${#temporary_rpms[@]})); then rpm --root "$root" -Uvh "${temporary_rpms[@]}"; fi
 mkdir -p "$root/usr/lib/dracut/modules.d/92uke-abl"
 install -m644 /builder/src/boot-pair/dracut/* "$root/usr/lib/dracut/modules.d/92uke-abl/"
 chmod 755 "$root/usr/lib/dracut/modules.d/92uke-abl/module-setup.sh"
@@ -95,13 +109,13 @@ chmod 755 "$root/usr/lib/dracut/modules.d/92uke-abl/module-setup.sh"
 dracut --sysroot "$root" \
     --conf /dev/null --confdir /job/empty-config --tmpdir /job/tmp \
     --force --no-hostonly --no-hostonly-cmdline --no-early-microcode --gzip \
-    --add uke-abl --kernel-cmdline "$(cat /job/inputs/kernel-cmdline)" \
+    --add "uke-abl" --kernel-cmdline "$(cat /job/inputs/kernel-cmdline)" \
     --force-drivers "${early_drivers[*]} ufs_qcom phy_qcom_qmp_ufs qcom_battmgr dwc3_qcom phy_msm_snps_eusb2_uke repeater_qti_pmic_eusb2_uke i2c_qcom_geni gpi ktz8866" \
     --filesystems ext4 --omit 'network plymouth crypt systemd-cryptsetup syslog lvm mdraid btrfs i18n' \
     "${early_firmware[@]}" \
     /job/initramfs.cpio.gz "$release"
 [[ -s /job/initramfs.cpio.gz ]]
-rpm --root "$root" -e dracut kbd xkeyboard-config libxkbcommon
+if ((${#temporary_names[@]})); then rpm --root "$root" -e "${temporary_names[@]}"; fi
 rm -rf "$root/usr/lib/dracut/modules.d/92uke-abl"
 rpm --root "$root" -qa --qf '%{NAME}\t%{VERSION}-%{RELEASE}\t%{ARCH}\n' | sort > /job/final-rpms.tsv
 [[ $(sha256sum /job/final-rpms.tsv | cut -d ' ' -f1) == $(sha256sum /job/installed-rpms.tsv | cut -d ' ' -f1) ]]

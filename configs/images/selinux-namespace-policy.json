@@ -10,7 +10,7 @@
     },
     {
       "path": "var/lib/selinux/targeted/active/file_contexts",
-      "sha256": "319a760b531ae47b77d8f9851ed847f4c4bbbde65ed17484ac2f0c335ad568ee",
+      "sha256": "98fa21bc0c0945a6d16d37c9e128b49f17dc3a04a444185405739c75be337c7f",
       "purpose": "Public Fedora SELinux user-home namespace expressions, not captured host identities"
     },
     {
@@ -25,12 +25,12 @@
     },
     {
       "path": "etc/selinux/targeted/contexts/files/file_contexts.bin",
-      "sha256": "f0eb67196d52fc2d00fbb29e92ef71618826761b9b11de2d357776e0a1ff70b4",
+      "sha256": "15067c35304c3ae64981bbce4da1463bd159469a5f9b2671d7c456f0d744cf03",
       "purpose": "Public Fedora SELinux user-home namespace expressions, not captured host identities"
     },
     {
       "path": "etc/selinux/targeted/contexts/files/file_contexts",
-      "sha256": "319a760b531ae47b77d8f9851ed847f4c4bbbde65ed17484ac2f0c335ad568ee",
+      "sha256": "98fa21bc0c0945a6d16d37c9e128b49f17dc3a04a444185405739c75be337c7f",
       "purpose": "Public Fedora SELinux user-home namespace expressions, not captured host identities"
     },
     {

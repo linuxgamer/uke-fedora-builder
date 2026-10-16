@@ -1,12 +1,15 @@
-# Fedora Rawhide Core filesystem candidates
+# Fedora 44 Core filesystem candidates
 
-The checked-in image recipes still target Rawhide. The planned Fedora 44 move
-has not been built or tested. From the `uke-fedora` workspace, use
+The checked-in image recipes target Fedora 44. From the `uke-fedora` workspace, use
 `./build.sh core --offline --dry-run` to inspect the Core plan, or
 `./build.sh core --help` for options. The Core recipe accepts `--offline`,
 `--test`, `--linux-size`, `--esp-size` and `--fat-sector` options.
 
-The initial target is Fedora Rawhide AArch64 Core. Other distributions and
+The 16 October 2026 Fedora 44 Core build passed offline package preparation,
+root/initramfs audits, SELinux labeling and EXT4/FAT/UKI readback on an x86_64
+host with AArch64 emulation. Tablet boot remains untested.
+
+The target is Fedora 44 AArch64 Core. Other distributions and
 desktop targets fail explicitly. Console roots reject installed Wayland and X11
 session entries from any desktop environment. The host entry prepares official
 prerequisites on Fedora, Debian/Ubuntu, openSUSE, Arch and Alpine/postmarketOS, selects working
@@ -18,10 +21,12 @@ compilers and pause their own active container when another build starts.
 ## Locked inputs and audit boundaries
 
 The runtime starts from an immutable official Fedora AArch64 OCI digest, then
-replays the signed 56-input console closure, 13 signed system/identity inputs
-and two signed boot/CDC RPMs. `manifests/images/core-*.json` record SHA-256,
-architecture, source RPM identity and immutable Koji/COPR URLs. Both signing-key
-fingerprints are checked before use. Package workers have networking disabled.
+replays 55 console runtime inputs and 15 system/identity inputs, then installs
+three local boot/CDC RPMs. `manifests/images/core-*.json` record SHA-256,
+architecture, source RPM identity and signed Koji URLs or local artifact paths.
+The Fedora 44 signing-key fingerprint is checked before use. Official RPMs
+require Fedora signatures; unsigned local development RPMs require their pinned
+hashes and RPM payload digests. Package workers have networking disabled.
 The base image supplies Fedora's original `libstdc++`.
 
 Initial assembly uses dracut on the emulated host, then removes its assembly
@@ -68,7 +73,10 @@ compressed copies, a UKI, package list and checksums. Defaults are 4096 MiB Linu
 sizes; `--fat-sector` accepts 512 or 4096. A 4096-byte sector FAT32 ESP requires
 at least 512 MiB. Each effective profile changes the recipe/cache identity.
 
-Installation targets are fastboot names `esp` and `linux`. Filesystem labels
+Core installation targets are fastboot names `esp` and `userdata` by default;
+`--root-partlabel linux` selects an existing dedicated Linux partition. Writing
+the root image to `userdata` destroys Android user data and requires data
+backups and matching OEM firmware for restoration. Filesystem labels
 `UKE_ESP`/`UKE_LINUX` and `root=LABEL=UKE_LINUX` remain stable when partition
 sizes change. No GPT offset is embedded. Flashing still requires the target
 partition to exist, fit the chosen image and be visible to UEFI with compatible

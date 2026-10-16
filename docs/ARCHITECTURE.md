@@ -3,9 +3,10 @@
 The checked-in recipes use the Linux 7.2.9 Uke adaptation to produce
 `senemos-uke-linux-kernel-mainline` meta/core/modules/dtbs RPMs and an SRPM.
 Kernel builds belong to `uke-mainline-linux`; Fedora image recipes belong here.
-These recipes still target Rawhide. Fedora 44 migration is planned and has not
-been validated. The existing COPR configuration uses `mcc45tr/uke-linux-test`;
-local builds do not publish to it. See [the build guide](BUILDING.md).
+These recipes target Fedora 44 using pinned official container bases and
+Fedora RPMs. Uke packages come from local Fedora 44 builds; their exact hashes
+are recorded alongside official package signatures. The upstream Rawhide COPR
+is not enabled. Downstream publication is separate. See [the build guide](BUILDING.md).
 
 Resolve package dependencies before selecting a desktop. Preserve repository
 metadata, complete package versions, RPM checksums and licenses. Inspect the
