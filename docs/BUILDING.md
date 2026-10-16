@@ -21,7 +21,8 @@ remain independent from kernel package acceptance.
 Image recipes are in this repository. The workspace entry loads them directly.
 Use `./build.sh core --help`, `./build.sh boot --help` or
 `./build.sh boot-pair --help` for the corresponding options. Read-only device
-preflight is available through `./build.sh check-device --help`.
+pair verification is available through `./build.sh check-device --help`; it
+never contacts the device.
 Local filesystem acceptance is recorded separately from untested tablet boot.
 
 Boot ABI receipts extract the core rows from the final Kbuild `Module.symvers`.

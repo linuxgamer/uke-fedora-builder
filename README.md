@@ -83,11 +83,11 @@ Installing a kernel RPM through DNF does not update the embedded boot image or
 write a boot partition. Older package revisions sharing the same kernel release can
 replace its modules, so updates need a reviewed boot/module set and rollback.
 
-The `--check-device --pair DELIVERY_DIRECTORY` preflight is read-only.
-It verifies delivery files, root selection, Uke identity,
-slot/unlock state and target capacities. `--offline` checks local files only;
-`--report NEW_FILE` saves a private result. Exit 2 means device prerequisites
-are unavailable. Passing the check does not establish a backup or successful boot.
+`--check-device --pair DELIVERY_DIRECTORY` verifies delivery files and root
+selection locally. It never contacts ADB or fastboot; `--offline` remains an
+accepted alias, and `--report NEW_FILE` saves a private result. Device identity,
+slot, unlock state and partition sizes require separate manual checks. Passing
+the local check does not establish a backup or successful boot.
 
 The recipe mounts `persist` read-only to preserve OEM calibration. Sensor tests
 must not turn it into a writable registry. The current debug profile can provide
