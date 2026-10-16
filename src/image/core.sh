@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Sourced by the public ukelinux.sh host entry. No live block devices are used.
+# Sourced by the workspace build.sh entry. No live block devices are used.
 set -Eeuo pipefail
 BUILDER=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 # shellcheck source=host-lib.sh
@@ -10,10 +10,10 @@ die() { printf 'ukelinux: ERROR: %s\n' "$*" >&2; exit 1; }
 help() {
     cat <<'HELP'
 Senemos Uke Fedora Core filesystem builder (host only)
-Usage: ./ukelinux.sh --build core --distro=fedora [options]
-       ./ukelinux.sh --build boot --distro=fedora --help
-       ./ukelinux.sh --build boot-pair --distro=fedora --help
-       ./ukelinux.sh --check-device --pair DIRECTORY [--offline] [--report FILE]
+Usage: ./build.sh core --distro=fedora [options]
+       ./build.sh boot --distro=fedora --help
+       ./build.sh boot-pair --distro=fedora --help
+       ./build.sh check-device --pair DIRECTORY [--offline] [--report FILE]
   --release rawhide  Reviewed first target (default)
   --jobs N           At most two CPUs; defaults to two
   --esp-size N       ESP filesystem size in MiB (default 256; minimum 128)

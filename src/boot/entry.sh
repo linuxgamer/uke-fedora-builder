@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Sourced by ukelinux.sh through the Core dispatcher; host only.
+# Sourced by build.sh through the Core dispatcher; host only.
 # shellcheck disable=SC2034 # OFFLINE is consumed by the shared host bootstrap.
 boot_help() {
     cat <<'HELP'
 Uke Fedora boot_b debug image (host only; no flashing)
-Usage: ./ukelinux.sh --build boot --distro=fedora [options]
+Usage: ./build.sh boot --distro=fedora [options]
   --stock-boot FILE       Exact reviewed OEM/ROM boot.img template
   --boot-template ID     android17-evolutionx-12.1 (default), global-os3.0.304.0,
                          or global-os3.0.303.0; physical slot contents stay unverified
@@ -52,14 +52,14 @@ boot_recipe_hash() {
     # QEMU observes the finished bytes separately and must not invalidate the
     # kernel cache when only its console parser changes.
     cat "$dir"/src/boot/* "$dir"/configs/boot/*.json "$dir"/tests/boot-contract.sh \
-        "$dir"/tests/boot-image-contract.sh "$dir"/tests/kernel-export-contract.sh "$dir"/manifests/boot-source-archives.json \
+        "$dir"/tests/boot-image-contract.sh "$dir"/tests/kernel-export-contract.sh \
         "$dir"/src/image/host-lib.sh "$dir"/src/image/dracut/91uke-bringup/*.service \
         "$dir"/src/audit/*.sh | sha256sum | cut -d ' ' -f1
 }
 boot_main() {
     local target=boot distro=fedora release=rawhide self=0 key='' value='' stock='' reuse='' template='' kernel core profile recipe recipe_source effective_profile host_image kernel_image input module_rpm
     JOBS=1 OFFLINE=0 DRY_RUN=0 ENGINE='' CID='' PAUSED=0
-    kernel=$BUILDER/../senemos-uke-kernel
+    kernel=$BUILDER/../uke-mainline-linux
     core=$BUILDER/build/images/core-rawhide-6bd23aae9255f1de
     profile=$BUILDER/configs/boot/uke-boot-b.json
     while (($#)); do

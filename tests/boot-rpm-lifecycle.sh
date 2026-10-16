@@ -28,7 +28,6 @@ grep -Fx 'LABEL=UKE_LINUX / ext4 defaults 0 1' /usr/share/senemos/boot/uke/fstab
 [[ ! -e /etc/systemd/system/multi-user.target.wants/uke-esp32-cdc-log.service ]]
 [[ ! -e /etc/senemos/esp32-cdc.conf ]]
 rpm -qa --qf '%{NAME}\n' | sort > "$output/installed-before-removal.txt"
-if grep -Ei 'python|pypy|libpython' "$output/installed-before-removal.txt"; then exit 1; fi
 dnf -y --disablerepo='*' --setopt=clean_requirements_on_remove=False remove uke-esp32-cdc uke-boot-integration
 if rpm -q uke-boot-integration uke-esp32-cdc >/dev/null; then exit 1; fi
 [[ ! -e /usr/bin/uke-boot-status && ! -e /usr/libexec/senemos-uke/uke-esp32-cdc ]]

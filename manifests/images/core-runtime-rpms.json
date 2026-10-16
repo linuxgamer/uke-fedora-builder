@@ -2,9 +2,7 @@
   "schema_version": 1,
   "date": "2026-10-05",
   "target": "fedora-rawhide-aarch64",
-  "scope": "Exact 57-input console closure for the immutable official Fedora runtime base",
-  "python_target_payload": false,
-  "kde_derivative_payload": false,
+  "scope": "Exact 56-input console closure for the immutable official Fedora runtime base",
   "hardware_tested": false,
   "packages": [
     {
@@ -383,19 +381,6 @@
       "stage": "runtime",
       "url": "https://kojipkgs.fedoraproject.org/packages/libseccomp/2.6.1/3.fc45/data/signed/91211fce/aarch64/libseccomp-2.6.1-3.fc45.aarch64.rpm",
       "source_rpm": "libseccomp-2.6.1-3.fc45.src.rpm"
-    },
-    {
-      "name": "libstdc++",
-      "epoch": "0",
-      "version": "16.2.1",
-      "release": "2.uke1.fc46.1",
-      "arch": "aarch64",
-      "license": "GPL-3.0-or-later AND LGPL-3.0-or-later AND (GPL-3.0-or-later WITH GCC-exception-3.1) AND (GPL-3.0-or-later WITH Texinfo-exception) AND (LGPL-2.1-or-later WITH GCC-exception-2.0) AND (GPL-2.0-or-later WITH GCC-exception-2.0) AND (GPL-2.0-or-later WITH GNU-compiler-exception) AND BSL-1.0 AND GFDL-1.3-or-later AND Linux-man-pages-copyleft-2-para AND SunPro AND BSD-1-Clause AND BSD-2-Clause AND BSD-2-Clause-Views AND BSD-3-Clause AND BSD-4-Clause AND BSD-Source-Code AND Zlib AND MIT AND Apache-2.0 AND (Apache-2.0 WITH LLVM-Exception) AND ZPL-2.1 AND ISC AND LicenseRef-Fedora-Public-Domain AND HP-1986 AND curl AND Martin-Birgmeier AND HPND-Markus-Kuhn AND dtoa AND SMLNJ AND AMD-newlib AND OAR AND HPND-merchantability-variant AND HPND-Intel",
-      "file": "libstdc++-16.2.1-2.uke1.fc46.1.aarch64.rpm",
-      "sha256": "b0b984e96104647d9fb8ed985451d965dc451f34c407312076aa6f2faeb46f6e",
-      "stage": "runtime",
-      "url": "https://download.copr.fedorainfracloud.org/results/mcc45tr/uke-linux-test/fedora-rawhide-aarch64/11077014-libstdcxx-uke-runtime/libstdc++-16.2.1-2.uke1.fc46.1.aarch64.rpm",
-      "source_rpm": "libstdcxx-uke-runtime-16.2.1-2.uke1.fc46.1.src.rpm"
     },
     {
       "name": "libxkbcommon",

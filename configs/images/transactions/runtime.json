@@ -358,19 +358,6 @@
       "package_path": "./packages/device-mapper-1.02.217-1.fc46.aarch64.rpm"
     },
     {
-      "nevra": "libstdc++-16.2.1-2.uke1.fc46.1.aarch64",
-      "action": "Upgrade",
-      "reason": "Dependency",
-      "repo_id": "@stored_transaction(uke)",
-      "package_path": "./packages/libstdc++-16.2.1-2.uke1.fc46.1.aarch64.rpm"
-    },
-    {
-      "nevra": "libstdc++-16.2.1-2.fc46.1.aarch64",
-      "action": "Replaced",
-      "reason": "Dependency",
-      "repo_id": "@System"
-    },
-    {
       "nevra": "kmod-34.2-6.fc45.aarch64",
       "action": "Install",
       "reason": "User",

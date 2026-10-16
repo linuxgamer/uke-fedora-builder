@@ -1,13 +1,9 @@
-/referances/*
-!/referances/README.md
 /build/
+/private/
 /artifacts/
-/reports/private/
-/reports/*.log
-/src/upstream/
+.directory
 .env
 .env.*
-.directory
 *.key
 *.pem
 *.part
@@ -18,3 +14,30 @@
 __pycache__/
 *.pyc
 .venv/
+
+# ai stuff
+/PLAN.md
+/DEVICE-STATUS.md
+/SOURCE-MAP.md
+/AGENTS.md
+/CLAUDE.md
+/GEMINI.md
+/MEMORY.md
+/TODO.md
+/.codex/
+/.agents/
+/.claude/
+/.cursor/
+/.aider*
+/.pi/
+
+# vm stuff
+*.img.zst
+*.qcow2
+*.iso
+*.log
+*.swp
+
+# editors
+.vscode/
+.idea/

@@ -15,7 +15,6 @@ for package in "${packages[@]}"; do
     rpmkeys --checksig "$package" | grep -F 'signatures OK'
     [[ $(rpm -qp --qf '%{ARCH}:%{VERSION}' "$package") == "aarch64:$version" ]]
     rpm -qp --requires "$package" > "$out/${package##*/}.requires"
-    if grep -Ei 'python|pypy|libpython' "$out/${package##*/}.requires"; then exit 1; fi
     (cd "$out/payload"; rpm2cpio "$package" | cpio -idm --quiet --no-absolute-filenames)
     jq --arg file "${package##*/}" --arg sha "$(sha256sum "$package" | cut -d ' ' -f1)" \
         --arg nevra "$(rpm -qp --qf '%{NAME}-%{EPOCHNUM}:%{VERSION}-%{RELEASE}.%{ARCH}' "$package")" \
@@ -28,7 +27,7 @@ jq -S . "$identity/source-lock.json" > "$out/source.json"
 jq -S . "$profile" > "$out/expected-source.json"
 cmp "$out/source.json" "$out/expected-source.json"
 cmp "$identity/applied-patches.txt" <(jq -r '.patches[].path|split("/")|last' "$profile")
-bash "$builder/src/audit/check-target-payload.sh" "$out/payload"
+bash "$builder/src/audit/check-target-elf.sh" "$out/payload"
 bash "$builder/src/audit/check-target-privacy.sh" "$out/payload"
 llvm-readobj --file-headers "$root/vmlinuz" | grep -F IMAGE_FILE_MACHINE_ARM64
 fdtget -t s "$root/dtb/qcom/sm7675-xiaomi-uke.dtb" / compatible | grep -F xiaomi,uke

@@ -1,24 +1,27 @@
 # Kernel and Fedora image construction
 
-The kernel repository owns the standalone `senemos.sh` entry and its pinned
-host environment. See its [build guide](https://github.com/MCC45TR/senemos-uke-kernel-mainline/blob/main/docs/BUILDING.md).
+Run the workspace entry from the `uke-fedora` checkout:
 
 ```sh
-git clone https://github.com/MCC45TR/senemos-uke-kernel-mainline.git
-cd senemos-uke-kernel-mainline
-./senemos.sh --build 7.2.9 --distro=fedora --test
+./build.sh kernel --build 7.2.9 --offline --dry-run
+./build.sh core --offline --dry-run
+./build.sh boot-pair --help
 ```
 
-In the multi-repository Uke workspace, invoke
-`./senemos-uke-kernel/senemos.sh`. The old root kernel entry is removed.
+The entries require Bash and display help when run without arguments. In a
+standalone kernel checkout, use `./build.sh` followed by the kernel options;
+the workspace entry requires the `kernel` target first. The kernel repository
+owns the build implementation and its pinned host environment. See the
+[`uke-mainline-linux` build guide](https://github.com/linuxgamer/uke-mainline-linux/blob/main/docs/BUILDING.md).
+Normal builds can install host prerequisites; dry-run and offline modes do not.
 Verified archives and reusable build/artifact output belong to the kernel
 checkout. Firmware, image inputs, boot handoff and target-image construction
 remain independent from kernel package acceptance.
 
-The workspace image entry is `ukelinux.sh`. It uses the Fedora builder
-to produce local Core candidates; future accepted releases belong to `uke-linux-images`.
-Current image prerequisites and failed/corrected trials are in the
-[private engineering records](https://github.com/MCC45TR/uke-linux-docs).
+Image recipes are in this repository. The workspace entry loads them directly.
+Use `./build.sh core --help`, `./build.sh boot --help` or
+`./build.sh boot-pair --help` for the corresponding options. Read-only device
+preflight is available through `./build.sh check-device --help`.
 Local filesystem acceptance is recorded separately from untested tablet boot.
 
 Boot ABI receipts extract the core rows from the final Kbuild `Module.symvers`.

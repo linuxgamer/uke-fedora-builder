@@ -25,7 +25,7 @@ rpm --root "$root" -V senemos-uke-linux-kernel-mainline{,-core,-modules,-dtbs}
 rpm --root "$root" --restore uke-boot-integration uke-esp32-cdc
 rpm --root "$root" -V uke-boot-integration uke-esp32-cdc
 rpm --root "$root" -qa --qf '%{NAME}\t%{VERSION}-%{RELEASE}\t%{ARCH}\n' | sort > /job/installed-rpms.tsv
-if cut -f1 /job/installed-rpms.tsv | grep -Ei 'python|pypy|libpython|^plasma-workspace$|^dolphin$'; then exit 1; fi
+bash /builder/src/audit/check-console-session.sh "$root"
 printf 'PARTLABEL=linux / ext4 defaults 0 1\n' > "$root/etc/fstab"
 cat /builder/configs/images/uke-persist.fstab >> "$root/etc/fstab"
 install -d -m700 "$root/mnt/vendor/persist"
@@ -81,7 +81,7 @@ fi
 chroot "$root" /usr/bin/depmod "$release"
 # Temporarily install the exact signed host assembly dependency closure in
 # this disposable native root. Remove it through RPM before target export.
-# No project Python and no cross-sysroot guesses about upstream dracut hooks.
+# Avoid cross-sysroot guesses about upstream dracut hooks.
 rpmkeys --root "$root" --import /builder/configs/keys/fedora-46.asc
 for package in /job/inputs/host-rpms/*.rpm; do
     rpmkeys --root "$root" --checksig "$package" | grep -F 'signatures OK'

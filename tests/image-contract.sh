@@ -5,7 +5,7 @@ root=$(cd "$(dirname "$0")/.." && pwd)
 # shellcheck disable=SC1091
 source "$root/src/image/core.sh"
 reject() { if (image_main "$@") > /dev/null 2>&1; then echo 'Invalid image request accepted' >&2; exit 1; fi; }
-reject --build plasma --dry-run
+reject --build desktop --dry-run
 reject --distro debian --dry-run
 reject --release 45 --dry-run
 reject --jobs 0 --dry-run
@@ -36,6 +36,12 @@ printf input > "$fixture/input"
 verify_cache "$fixture/input" "$(sha256sum "$fixture/input" | cut -d ' ' -f1)"
 if (verify_cache "$fixture/input" "$(printf corrupted | sha256sum | cut -d ' ' -f1)") >/dev/null 2>&1; then exit 1; fi
 if (verify_cache "$fixture/missing" "$(sha256sum "$fixture/input" | cut -d ' ' -f1)") >/dev/null 2>&1; then exit 1; fi
+bash "$root/src/audit/check-console-session.sh" "$fixture"
+mkdir -p "$fixture/usr/share/wayland-sessions" "$fixture/usr/share/xsessions"
+: > "$fixture/usr/share/wayland-sessions/example.desktop"
+if bash "$root/src/audit/check-console-session.sh" "$fixture" >/dev/null 2>&1; then exit 1; fi
+mv "$fixture/usr/share/wayland-sessions/example.desktop" "$fixture/usr/share/xsessions/example.desktop"
+if bash "$root/src/audit/check-console-session.sh" "$fixture" >/dev/null 2>&1; then exit 1; fi
 bash "$root/tests/target-privacy-policy.sh"
 bash "$root/tests/device-preflight-contract.sh"
 if command -v shellcheck >/dev/null 2>&1; then shellcheck "$root/src/device/preflight.sh"; fi

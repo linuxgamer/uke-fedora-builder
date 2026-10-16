@@ -80,9 +80,8 @@ audit-initramfs)
         # Preserve authenticated vendor blobs; exact hashes admit their OEM build paths only.
         privacy=(--namespace-policy /builder/configs/firmware/uke-adsp-early.json)
     fi
-    bash /builder/src/audit/check-target-payload.sh /job/initramfs-root
+    bash /builder/src/audit/check-target-elf.sh /job/initramfs-root
     bash /builder/src/audit/check-target-privacy.sh "${privacy[@]}" /job/initramfs-root
-    bash /builder/src/audit/check-target-payload.sh /job/root
     for unit in uke-usb-network uke-usb-network-shell; do
         [[ ! -e /job/root/etc/systemd/system/multi-user.target.wants/$unit.service ]]
     done
@@ -96,6 +95,7 @@ audit-initramfs)
         jq -s '{files:([.[].files[]])}' "$root_policy" /builder/configs/firmware/uke-adsp-early.json > /job/root-privacy-policy.json
         root_policy=/job/root-privacy-policy.json
     fi
+    bash /builder/src/audit/check-target-elf.sh /job/root
     bash /builder/src/audit/check-target-privacy.sh --namespace-policy "$root_policy" /job/root
     while IFS= read -r -d '' file; do
         if [[ $(od -An -tx1 -N4 "$file" | tr -d ' \n') == 7f454c46 ]]; then
@@ -214,7 +214,7 @@ compose)
     rm /job/system.roundtrip.img
     mkdir /job/ext4-readback
     debugfs -R 'rdump / /job/ext4-readback' /job/system.raw.img
-    bash /builder/src/audit/check-target-payload.sh /job/ext4-readback
+    bash /builder/src/audit/check-target-elf.sh /job/ext4-readback
     bash /builder/src/audit/check-target-privacy.sh --namespace-policy /builder/configs/images/selinux-namespace-policy.json /job/ext4-readback
     cmp "$root/etc/fstab" /job/ext4-readback/etc/fstab
     cmp /job/Image /job/ext4-readback/usr/lib/uke-boot-pair/Image
@@ -225,7 +225,7 @@ compose)
         --arg system "$(sha256sum /job/system.img | cut -d ' ' -f1)" \
         --arg raw "$(sha256sum /job/system.raw.img | cut -d ' ' -f1)" \
         --argjson modules "$count" --argjson patches "$(jq -er .patch_count "$profile")" \
-        '{schema_version:1,status:"host-validated-stock-ABL-pair-candidate",recipe_sha256:$recipe,profile:$profile[0],sha256:{boot:$boot,system:$system,decoded_ext4:$raw},checks:{source_preparation:true,base_patches:$patches,abl_adaptation_patch:1,embedded_initramfs_byte_match:true,module_byte_match:$modules,android_v4_roundtrip:true,full_sparse_logical_coverage:true,sparse_roundtrip:true,all_inode_selinux_labels:true,ext4_readback:true,no_python:true,privacy:true},qemu_tested:false,boot_tested:false,hardware_tested:false,flash_executed:false}' > /job/manifest.json
+        '{schema_version:1,status:"host-validated-stock-ABL-pair-candidate",recipe_sha256:$recipe,profile:$profile[0],sha256:{boot:$boot,system:$system,decoded_ext4:$raw},checks:{source_preparation:true,base_patches:$patches,abl_adaptation_patch:1,embedded_initramfs_byte_match:true,module_byte_match:$modules,android_v4_roundtrip:true,full_sparse_logical_coverage:true,sparse_roundtrip:true,all_inode_selinux_labels:true,ext4_readback:true,privacy:true},qemu_tested:false,boot_tested:false,hardware_tested:false,flash_executed:false}' > /job/manifest.json
     (cd /job; sha256sum manifest.json >> SHA256SUMS; sha256sum -c SHA256SUMS)
     ;;
 qemu-prepare)

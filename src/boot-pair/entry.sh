@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Sourced by the one public ukelinux.sh entry; no device commands are executed.
+# Sourced by the workspace build.sh entry; no device commands are executed.
 # shellcheck disable=SC2034 # OFFLINE is consumed by the shared host bootstrap.
 pair_help() {
     cat <<'HELP'
 Uke stock-ABL Fedora Rawhide pair (host-only build)
-Usage: ./ukelinux.sh --build boot-pair --distro=fedora --device-dt FILE [options]
+Usage: ./build.sh boot-pair --distro=fedora --device-dt FILE [options]
   --device-dt FILE    Private, read-only live bootloader FDT used for host admission tests
   --kernel-cache DIR Verified earlier local boot cache (workspace default)
   --core-candidate DIR Qualified prepared Fedora root (workspace default)
@@ -107,7 +107,7 @@ pair_job() {
 }
 pair_main() {
     local target=boot-pair distro=fedora release=rawhide key='' value='' device_dt='' kernel_cache='' core='' stock=''
-    local kernel=$BUILDER/../senemos-uke-kernel profile=$BUILDER/configs/boot/uke-boot-pair.json
+    local kernel=$BUILDER/../uke-mainline-linux profile=$BUILDER/configs/boot/uke-boot-pair.json
     JOBS=1 OFFLINE=0 DRY_RUN=0 ENGINE='' CID='' PAUSED=0
     while (($#)); do
         case $1 in

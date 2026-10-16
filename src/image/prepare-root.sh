@@ -25,7 +25,7 @@ rpm --restore -a
 rpm -V uke-core-meta uke-desktop-metas libstdc++ uke-boot-integration uke-esp32-cdc \
     senemos-uke-linux-kernel-mainline-core senemos-uke-linux-kernel-mainline-modules \
     senemos-uke-linux-kernel-mainline-dtbs
-if rpm -qa --qf '%{NAME}\n' | grep -Ei 'python|pypy|libpython|^plasma-workspace$|^dolphin$|^kde-plasma-uke-meta$'; then exit 1; fi
+bash /builder/src/audit/check-console-session.sh /
 [[ $(rpm -q --qf '%{RELEASE}' uke-core-meta) == 3.fc46 ]]
 [[ -s /usr/lib/modules/$kernel_release/dtb/qcom/sm7675-xiaomi-uke.dtb ]]
 # Remove optional container/graphics packages through RPM dependency checks.
@@ -90,6 +90,7 @@ baseurl=https://download.copr.fedorainfracloud.org/results/mcc45tr/uke-linux-tes
 enabled=1
 gpgcheck=1
 gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-uke-copr
+excludepkgs=libstdc++
 REPO
 cat > /etc/dnf/dnf.conf <<'DNF'
 [main]

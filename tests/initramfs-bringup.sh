@@ -28,7 +28,7 @@ echo 'Actual AArch64 initramfs assembled; independent host and ARM64 checks must
 exit 0
 fi
 if [[ $phase == verify-host ]]; then
-bash /builder/src/audit/check-target-payload.sh "$output/root"
+bash /builder/src/audit/check-target-elf.sh "$output/root"
 bash /builder/src/audit/check-target-privacy.sh "$output/root"
 [[ ! -s $output/root/etc/machine-id && ! -s $output/root/var/lib/systemd/random-seed ]]
 for service in uke-initrd-shell uke-initrd-cdc; do

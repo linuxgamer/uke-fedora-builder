@@ -1,13 +1,17 @@
 # Fedora build architecture
 
-The first implementation consumes the reviewed Linux 7.2.9 Uke adaptation and
-produces `senemos-uke-linux-kernel-mainline` meta/core/modules/dtbs RPMs and a
-complete SRPM through the workspace's single `senemeos.sh` entry. A console-first
-Rawhide AArch64 rootfs, development packages, firmware and boot-profile artifacts
-remain later outputs. The initial COPR channel is `mcc45tr/uke-linux-test`; this
-local build workflow does not publish to it. See [the build contract](BUILDING.md).
+The checked-in recipes use the Linux 7.2.9 Uke adaptation to produce
+`senemos-uke-linux-kernel-mainline` meta/core/modules/dtbs RPMs and an SRPM.
+Kernel builds belong to `uke-mainline-linux`; Fedora image recipes belong here.
+These recipes still target Rawhide. Fedora 44 migration is planned and has not
+been validated. The existing COPR configuration uses `mcc45tr/uke-linux-test`;
+local builds do not publish to it. See [the build guide](BUILDING.md).
 
-Resolve package dependencies before selecting a desktop. Preserve repository metadata, complete NEVRAs, RPM checksums and licenses. Do not install broad package groups without inspecting their transitive dependencies: no Python runtime, script or libpython dependency may enter a tablet payload. Choose native alternatives or defer an incompatible feature. Document unavoidable upstream Python tools as host-only exceptions with exact pins.
+Resolve package dependencies before selecting a desktop. Preserve repository
+metadata, complete package versions, RPM checksums and licenses. Inspect the
+dependencies of package groups before including them. Signed package and
+target privacy checks apply to Python packages as they do to other payloads.
+Image composition needs a fresh build before combining updated components.
 
 The kernel manifest includes source/config/patch/toolchain identities, kernel
 release, DT identity and module ABI inventories, with full artifact SHA-256.
@@ -18,4 +22,7 @@ verify these fields independently. Kernel and modules come from one build.
 Current local candidates are unsigned; modules are stripped and compressed.
 When signing is introduced, it must occur after strip and before compression.
 
-RPM scripts must not flash Android partitions or change the selected boot profile. QEMU/solver checks, terminal COPR build success and physical boot are separate acceptance records. A rootfs archive is not assumed to fit init_boot. Signing keys and raw device logs remain private.
+RPM scripts must not flash Android partitions or change the selected boot
+profile. QEMU checks, dependency checks, COPR build results and physical boots
+need separate records. A rootfs archive is not assumed to fit `init_boot`.
+Signing keys and raw device logs remain private.

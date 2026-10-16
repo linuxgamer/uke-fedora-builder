@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Sourced by ukelinux.sh. Device commands are bounded, read-only inventory.
+# Sourced by build.sh. Device commands are bounded, read-only inventory.
 device_preflight_help() {
     cat <<'HELP'
-Usage: ./ukelinux.sh --check-device --pair DIRECTORY [--offline] [--report FILE]
+Usage: ./build.sh check-device --pair DIRECTORY [--offline] [--report FILE]
 Verify a delivered stock-ABL pair and inspect one connected Uke transport.
 --offline verifies local files without contacting ADB or fastboot.
 --report writes a new JSON report; existing files are never overwritten.
@@ -77,7 +77,7 @@ device_pair_verify() {
             .qemu_evidence.result.wrong_filesystem_uuid_rejected==true
          else false end) and
         .sha256.boot==$boot and .sha256.system==$system and
-        .checks.module_byte_match==1146 and .checks.no_python==true and .checks.privacy==true and
+        .checks.module_byte_match==1146 and .checks.privacy==true and
         .checks.sparse_roundtrip==true and .checks.full_sparse_logical_coverage==true and
         .qemu_tested==true and .qemu_evidence.sha256==$vm and .qemu_evidence.result==$result[0] and
         .qemu_evidence.result.real_ext4_root_transition==true and

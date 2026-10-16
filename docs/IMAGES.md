@@ -1,39 +1,34 @@
 # Fedora Rawhide Core filesystem candidates
 
-The Uke workspace entry is `ukelinux.sh`. Its implementation belongs to this
-repository; it has no dependency on private documentation or a local root export.
-
-```sh
-git clone --recurse-submodules https://github.com/MCC45TR/uke-linux.git
-cd uke-linux
-./ukelinux.sh --build core --distro=fedora --test
-./ukelinux.sh --build core --distro=fedora --offline --test
-./ukelinux.sh --build core --esp-size 512 --linux-size 8192 --fat-sector 4096 --test
-./ukelinux.sh --self-test
-```
+The checked-in image recipes still target Rawhide. The planned Fedora 44 move
+has not been built or tested. From the `uke-fedora` workspace, use
+`./build.sh core --offline --dry-run` to inspect the Core plan, or
+`./build.sh core --help` for options. The Core recipe accepts `--offline`,
+`--test`, `--linux-size`, `--esp-size` and `--fat-sector` options.
 
 The initial target is Fedora Rawhide AArch64 Core. Other distributions and
-desktop targets fail explicitly. The host entry prepares official prerequisites
-on Fedora, Debian/Ubuntu, openSUSE, Arch and Alpine/postmarketOS, selects working
+desktop targets fail explicitly. Console roots reject installed Wayland and X11
+session entries from any desktop environment. The host entry prepares official
+prerequisites on Fedora, Debian/Ubuntu, openSUSE, Arch and Alpine/postmarketOS, selects working
 Podman/Docker and limits jobs to two CPUs and 3 GiB per container. Native
-AArch64 and x86_64 with official QEMU binfmt are supported code paths; current
-end-to-end validation is on the Fedora Rawhide x86_64 host. Builds wait for other
+AArch64 and x86_64 with official QEMU binfmt are supported code paths. Earlier
+end-to-end host validation used Fedora Rawhide x86_64. Builds wait for other
 compilers and pause their own active container when another build starts.
 
 ## Locked inputs and audit boundaries
 
 The runtime starts from an immutable official Fedora AArch64 OCI digest, then
-replays the signed 57-input console closure, 13 signed system/identity inputs
+replays the signed 56-input console closure, 13 signed system/identity inputs
 and two signed boot/CDC RPMs. `manifests/images/core-*.json` record SHA-256,
 architecture, source RPM identity and immutable Koji/COPR URLs. Both signing-key
 fingerprints are checked before use. Package workers have networking disabled.
-The GNU runtime vendor transition is explicitly allowed for the reviewed source.
+The base image supplies Fedora's original `libstdc++`.
 
 Initial assembly uses dracut on the emulated host, then removes its assembly
 packages and optional format/graphics/keyring payloads through DNF dependency
-checks. RPM-owned files are never redacted to bypass an audit. No Python runtime,
-Python scripts, private build paths, SSH keys, machine ID or random seed are
-admitted into the complete target root or initramfs. Exact public SELinux
+checks. RPM-owned files are never redacted to bypass an audit. Private build
+paths, SSH keys, machine ID and random seed are rejected in the target root and
+initramfs. Python payloads are allowed. Exact public SELinux
 namespace rules have a six-file hash-pinned exception; modified files and host
 identities are rejected. Target SELinux remains enforcing.
 
@@ -41,7 +36,7 @@ The image-host container uses GNU objcopy instead of target `systemd-ukify`,
 plus native C/C++ e2fs/SELinux helpers. Fedora package-management tools can have
 upstream host dependencies inside that disposable container; none of those
 host tools are copied into tablet payloads. The OCI ID and recipe identify the
-host environment. No project-owned Python build tool is introduced.
+host environment.
 
 ## Development shell and ESP32-S3
 
@@ -90,5 +85,4 @@ the Linux EFI stub consumes the real firmware memory map, with firmware-owned
 carveouts needing exact-profile validation. A Uke UEFI handoff, target capacity
 and sector/firmware visibility, bridge enumeration, actual kernel boot and
 rollback are unresolved release gates. Passing filesystem/package checks is a
-local candidate result and cannot establish a bootable tablet image. Accepted
-future release assets belong to `uke-linux-images`.
+local candidate result and cannot establish a bootable tablet image.

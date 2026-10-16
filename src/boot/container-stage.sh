@@ -52,7 +52,7 @@ prepare)
         initrd-switch-root.target initrd-switch-root.service dracut-mount.service; do
         ln -sfn /dev/null "/job/initramfs-root/usr/lib/systemd/system/$name"
     done
-    bash /builder/src/audit/check-target-payload.sh /job/initramfs-root
+    bash /builder/src/audit/check-target-elf.sh /job/initramfs-root
     bash /builder/src/audit/check-target-privacy.sh /job/initramfs-root
     while IFS= read -r -d '' file; do
         if [[ $(od -An -tx1 -N4 "$file" | tr -d ' \n') == 7f454c46 ]]; then
@@ -160,7 +160,7 @@ pack)
         --arg config "$(sha256sum /job/boot.config | cut -d ' ' -f1)" \
         --arg recipe "$(cat /job/inputs/recipe-sha256)" \
         --arg codec "$(sha256sum /job/boot-image | cut -d ' ' -f1)" \
-        '{schema_version:1,product:"fedora_boot.img",status:"boot-format-and-payload-candidate",recipe_sha256:$recipe,host_codec_sha256:$codec,profile:$profile[0],header:$header[0],sha256:{boot:$image,kernel:$kernel,initramfs:$initramfs,config:$config},checks:{android_v4_roundtrip:true,pinned_source_preparation:true,applied_patch_count:13,embedded_initramfs_byte_match:true,core_export_abi_match:true,module_payload_reused:true,native_aarch64_payload:true,no_python:true,privacy:true},qemu_tested:false,boot_tested:false,hardware_tested:false,flash_executed:false}' > /job/manifest.json
+        '{schema_version:1,product:"fedora_boot.img",status:"boot-format-and-payload-candidate",recipe_sha256:$recipe,host_codec_sha256:$codec,profile:$profile[0],header:$header[0],sha256:{boot:$image,kernel:$kernel,initramfs:$initramfs,config:$config},checks:{android_v4_roundtrip:true,pinned_source_preparation:true,applied_patch_count:13,embedded_initramfs_byte_match:true,core_export_abi_match:true,module_payload_reused:true,native_aarch64_payload:true,privacy:true},qemu_tested:false,boot_tested:false,hardware_tested:false,flash_executed:false}' > /job/manifest.json
     (cd /job; sha256sum manifest.json >> SHA256SUMS; sha256sum -c SHA256SUMS)
     ;;
 *) exit 2;;
