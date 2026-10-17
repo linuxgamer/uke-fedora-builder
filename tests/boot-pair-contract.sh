@@ -16,8 +16,12 @@ reject --root-partlabel
 reject --root-partlabel= --dry-run
 reject --root-partlabel system --dry-run
 reject --kernel-cache
+reject --variant
+reject --variant=phosh --dry-run
 reject --unknown
 (image_main --build boot-pair --offline --dry-run) | grep -F 'Two-image stock-ABL' >/dev/null
+(image_main --build boot-pair --variant=kde --offline --dry-run) | grep -F 'stock-ABL candidate (kde)' >/dev/null
+(image_main --build boot-pair --variant=gnome --offline --dry-run) | grep -F 'stock-ABL candidate (gnome)' >/dev/null
 (image_main --build boot-pair --dry-run) | grep -F 'boot_a and userdata' >/dev/null
 (image_main --build boot-pair --root-partlabel linux --dry-run) | grep -F 'boot_a and linux' >/dev/null
 (image_main --build=boot-pair --help) | grep -F system.img >/dev/null

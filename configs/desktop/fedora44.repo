@@ -1,0 +1,13 @@
+[fedora]
+name=Fedora 44 AArch64 release
+baseurl=https://dl.fedoraproject.org/pub/fedora/linux/releases/44/Everything/aarch64/os/
+enabled=1
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-44-aarch64
+
+[updates]
+name=Fedora 44 AArch64 updates
+baseurl=https://dl.fedoraproject.org/pub/fedora/linux/updates/44/Everything/aarch64/
+enabled=1
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-44-aarch64

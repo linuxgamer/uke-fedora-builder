@@ -32,4 +32,9 @@ reject "$fixture/payload"
 rm "$fixture/payload/etc/passwd"
 printf 'Absolute build filename: \0/%s/fixture/include.hpp\0\n' home > "$fixture/payload/usr/share/records/absolute"
 reject "$fixture/payload"
+rm "$fixture/payload/usr/share/records/absolute"
+printf 'Public upstream example: /home/example/project\n' > "$fixture/payload/usr/share/records/public"
+bash "$audit" --private-home /home/stast "$fixture/payload" >/dev/null
+printf 'Private build path: /home/stast/project\n' > "$fixture/payload/usr/share/records/private"
+reject --private-home /home/stast "$fixture/payload"
 printf '%s\n' 'Privacy fixtures passed; immutable namespace exceptions do not admit modified files, foreign paths or host identity'

@@ -37,7 +37,7 @@
   "kernel_rpm_spec_sha256": "377cf27039f9dc7fff305b4ab34a979b21013d96b899f8b056a9970d78acbc26",
   "base_module_symvers_sha256": "e29c7958ea7ef812cbcee9f72fb2a7503aac738a0c5f7594e8904927805a2860",
   "initramfs_sha256": "dca1340486bc42fdee5c085b2dcb64549c033f0e8e8c2ed3af971e165b9311d5",
-  "host_tool_image": "sha256:b7349dc4afcdace4ec6c2d2d93474cd0e912db9e3e32d0a71c39604866c0914f",
+  "host_tool_image": "sha256:6188ca1d9ae5db18ffb7544a7e0a51f56d870218ce635c7ace25fe4fec254ed5",
   "kernel_tool_image": "sha256:ba4ebc78524d100577617aa205ade0358f8c9effd55633df6ac2d4b2439fded8",
   "qemu_tool_image": "sha256:39e8f0140718c7ab2b610edb5c0a52fc0ea1deadfeeff360621b2fad4f03d6b0",
   "kernel_command_line": "rdinit=/usr/lib/systemd/systemd rd.systemd.unit=uke-boot-debug.target rd.fstab=no rd.gpt-auto=no systemd.gpt_auto=no rd.senemos.tty=1 senemos.debug=esp32-cdc console=tty0 console=ttyAMA0 loglevel=7 panic=0",
@@ -45,7 +45,7 @@
   "dt_source": "matching-stock-vendor_boot_b-and-dtbo_b",
   "dt_handoff_verified": false,
   "physical_capacity_verified": false,
-  "avb_state": "unsigned-no-footer",
+  "avb_state": "unsigned-hash-footer",
   "boot_tested": false,
   "hardware_tested": false
 }

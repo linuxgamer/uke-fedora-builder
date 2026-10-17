@@ -8,6 +8,7 @@ Usage: ./build.sh boot-pair --distro=fedora --device-dt FILE [options]
   --device-dt FILE    Private, read-only live bootloader FDT used for host admission tests
   --kernel-cache DIR Qualified kernel rpmbuild directory (workspace default)
   --core-candidate DIR Qualified prepared Fedora 44 root (required)
+  --variant NAME    tty (default), kde or gnome; each builds a separate pair
   --stock-boot FILE  Reviewed Android v4 boot template (EvolutionX default)
   --root-partlabel NAME  Root partition: userdata (default) or linux
   --jobs N          Maximum two CPUs, default one; queued behind other builds
@@ -22,6 +23,10 @@ coverage). Bootloader RAM/reservations are retained; embedded DT provider
 adaptation adds UFS, USB peripheral and a simplefb screen candidate. Root is
 admitted only from one physical GPT partition containing UKE_LINUX ext4.
 Installing to userdata replaces Android user data; retain backups and OEM recovery.
+KDE/GNOME require a verified desktop root with prepared-root.tar,
+prepared-root.sha256, profile.json and manifest.json; the manifest binds the
+variant and SHA-256 of both the root archive and profile. The selected display
+manager starts under graphical.target; a local shell remains on VT6.
 The builder writes host files only: no GPT changes, device writes, slot changes,
 flashing or init_boot/vendor_boot/
 dtbo replacement. Physical ABL/UFS/display/input acceptance remains owner-tested.
@@ -29,7 +34,7 @@ HELP
 }
 pair_recipe_hash() {
     local dir=$1 kernel=$2
-    cat "$dir"/src/boot-pair/*.sh "$dir"/src/boot-pair/*.cpp "$dir"/src/boot-pair/*.service \
+    cat "$dir"/src/boot-pair/*.sh "$dir"/src/boot-pair/*.cpp "$dir"/src/boot-pair/*.service "$dir"/src/boot-pair/*.conf \
         "$dir"/src/boot-pair/dracut/* "$dir"/configs/boot/uke-boot-pair*.json "$dir"/configs/boot/Containerfile.* \
         "$dir"/configs/keys/fedora-44.asc \
         "$dir"/src/boot/boot-image.cpp "$dir"/src/boot/vmlinux-exports.sh "$dir"/tests/boot-image-contract.sh "$dir"/tests/android-sparse-contract.sh \
@@ -97,6 +102,7 @@ pair_job() {
     [[ $stage != root ]] || command=(bash /builder/src/boot-pair/prepare-root.sh "$owner")
     [[ $stage != qemu ]] || command=(bash /builder/tests/boot-pair-qemu.sh /job/qemu)
     CID=$("$ENGINE" create --network=none --security-opt label=disable --platform "$platform" --cpus="$JOBS" --memory=3g \
+        -e SENEMOS_PRIVATE_HOST_HOME="$HOME" \
         -v "$WORK:/job" -v "$WORK/recipe:/builder:ro" -v "$WORK/kernel-recipe:/kernel-recipe:ro" \
         -v "$PRIVATE:/private" "$image" "${command[@]}")
     "$ENGINE" start "$CID" >/dev/null
@@ -112,20 +118,20 @@ pair_job() {
     ((status == 0)) || die "Pair stage $stage failed ($status); inspect $WORK/$stage.log"
 }
 pair_main() {
-    local target=boot-pair distro=fedora release=44 key='' value='' device_dt='' kernel_cache='' core='' stock='' root_partlabel=userdata
+    local target=boot-pair distro=fedora release=44 key='' value='' device_dt='' kernel_cache='' core='' stock='' root_partlabel=userdata variant=tty
     local kernel=$BUILDER/../uke-mainline-linux profile=$BUILDER/configs/boot/uke-boot-pair.json
     JOBS=1 OFFLINE=0 DRY_RUN=0 ENGINE='' CID='' PAUSED=0
     while (($#)); do
         case $1 in
             --help|-h) pair_help; return;;
             --offline) OFFLINE=1;; --dry-run) DRY_RUN=1;; --test) :;;
-            --build=*|--distro=*|--release=*|--jobs=*|--device-dt=*|--kernel-cache=*|--core-candidate=*|--stock-boot=*|--root-partlabel=*) key=${1%%=*}; value=${1#*=};;
-            --build|--distro|--release|--jobs|--device-dt|--kernel-cache|--core-candidate|--stock-boot|--root-partlabel) key=$1; shift; (($#)) || die "Missing value for $key"; value=$1;;
+            --build=*|--distro=*|--release=*|--jobs=*|--device-dt=*|--kernel-cache=*|--core-candidate=*|--stock-boot=*|--root-partlabel=*|--variant=*) key=${1%%=*}; value=${1#*=};;
+            --build|--distro|--release|--jobs|--device-dt|--kernel-cache|--core-candidate|--stock-boot|--root-partlabel|--variant) key=$1; shift; (($#)) || die "Missing value for $key"; value=$1;;
             *) die "Unknown pair option: $1";;
         esac
         case $key in
             --build) target=$value;; --distro) distro=$value;; --release) release=$value;; --jobs) JOBS=$value;;
-            --device-dt) device_dt=$value;; --kernel-cache) kernel_cache=$value;; --core-candidate) core=$value;; --stock-boot) stock=$value;; --root-partlabel) root_partlabel=$value;;
+            --device-dt) device_dt=$value;; --kernel-cache) kernel_cache=$value;; --core-candidate) core=$value;; --stock-boot) stock=$value;; --root-partlabel) root_partlabel=$value;; --variant) variant=$value;;
         esac
         key=''; shift
     done
@@ -133,7 +139,8 @@ pair_main() {
     [[ $JOBS =~ ^[1-9][0-9]{0,2}$ ]] || die 'Jobs must be a positive integer'
     ((JOBS <= 2)) || JOBS=2
     [[ $root_partlabel == userdata || $root_partlabel == linux ]] || die 'Root partition must be userdata or linux'
-    say "Two-image stock-ABL candidate: boot_a and $root_partlabel; local screen TTY required"
+    [[ $variant == tty || $variant == kde || $variant == gnome ]] || die 'Variant must be tty, kde or gnome'
+    say "Two-image stock-ABL candidate ($variant): boot_a and $root_partlabel; local screen TTY required"
     [[ $root_partlabel != userdata ]] || say 'Installing system.img to userdata destroys Android user data; backups and OEM recovery required'
     say 'Host-only build; init_boot, vendor_boot, dtbo, GPT and device storage remain untouched'
     ((DRY_RUN == 0)) || return 0
@@ -148,7 +155,25 @@ pair_main() {
     kernel_cache=$(realpath -e "$kernel_cache"); core=$(realpath -e "$core"); kernel=$(realpath -e "$kernel")
     local artifact=$kernel/artifacts/fedora-44/7.2.9 recipe effective uuid hash name file tool
     verify_cache "$artifact/build-manifest.json" "$(jq -r .kernel_manifest_sha256 "$profile")"
-    verify_cache "$core/prepared-root.tar" "$(jq -r .core_prepared_root_sha256 "$profile")"
+    local core_hash core_profile_hash core_manifest_hash root_mib=3072 target_unit=multi-user.target
+    if [[ $variant == tty ]]; then
+        core_hash=$(jq -er .core_prepared_root_sha256 "$profile")
+        verify_cache "$core/prepared-root.tar" "$core_hash"
+    else
+        [[ -f $core/profile.json && -f $core/manifest.json && -f $core/prepared-root.sha256 ]] || die 'Desktop core metadata is missing'
+        core_hash=$(sha256sum "$core/prepared-root.tar" | cut -d ' ' -f1)
+        [[ $(cat "$core/prepared-root.sha256") == "$core_hash  prepared-root.tar" ]] || die 'Desktop prepared-root checksum receipt differs'
+        core_profile_hash=$(sha256sum "$core/profile.json" | cut -d ' ' -f1)
+        core_manifest_hash=$(sha256sum "$core/manifest.json" | cut -d ' ' -f1)
+        jq -e --arg variant "$variant" '.variant==$variant and .release=="44" and
+            .distribution=="fedora" and .device=="uke" and .architecture=="aarch64" and
+            (.root_size_mib|type=="number" and .>=4096 and .<=1048576)' "$core/profile.json" >/dev/null || die 'Desktop core profile is not admitted'
+        jq -e --arg variant "$variant" --arg root "$core_hash" --arg profile "$core_profile_hash" \
+            '.variant==$variant and .prepared_root_sha256==$root and .profile_sha256==$profile and
+             .static_checks_passed==true' "$core/manifest.json" >/dev/null || die 'Desktop core manifest does not match input bytes'
+        root_mib=$(jq -er .root_size_mib "$core/profile.json")
+        target_unit=graphical.target
+    fi
     verify_cache "$kernel_cache/kernel-out/.config" "$(jq -r .kernel_config_sha256 "$profile")"
     verify_cache "$kernel_cache/kernel-out/arch/arm64/boot/Image" "$(jq -r .base_kernel_image_sha256 "$profile")"
     verify_cache "$kernel_cache/kernel-out/Module.symvers" "$(jq -r .base_module_symvers_sha256 "$profile")"
@@ -163,13 +188,19 @@ pair_main() {
     if ! flock -n 9; then say 'Queued behind another image invocation'; flock 9; fi
     [[ $(df -Pk "$BUILDER/build" | awk 'NR==2 {print $4}') -ge $((14*1024*1024)) ]] || die 'At least 14 GiB free disk space is required'
     recipe=$(pair_recipe_hash "$BUILDER" "$kernel")
-    hash=$(printf '%s\n%s\n%s\n' "$recipe" "$root_partlabel" "$(sha256sum "$stock" "$device_dt" | cut -d ' ' -f1)" | sha256sum | cut -d ' ' -f1)
+    hash=$(printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n' "$recipe" "$root_partlabel" "$variant" "$core_hash" \
+        "${core_profile_hash:-}" "${core_manifest_hash:-}" "$(sha256sum "$stock" "$device_dt" | cut -d ' ' -f1)" | sha256sum | cut -d ' ' -f1)
     uuid=${hash:0:8}-${hash:8:4}-${hash:12:4}-${hash:16:4}-${hash:20:12}
-    effective=$(jq -S --arg label "$root_partlabel" --arg uuid "$uuid" \
+    effective=$(jq -S --arg label "$root_partlabel" --arg uuid "$uuid" --arg variant "$variant" \
+        --arg corehash "$core_hash" --arg coreprofile "${core_profile_hash:-}" --arg coremanifest "${core_manifest_hash:-}" \
+        --argjson rootmib "$root_mib" --arg target "$target_unit" \
         --arg stock "$(sha256sum "$stock" | cut -d ' ' -f1)" \
-        '.root_uuid=$uuid | .stock_boot_sha256=$stock |
+        '.root_uuid=$uuid | .stock_boot_sha256=$stock | .variant=$variant |
+         .core_prepared_root_sha256=$corehash | .core_profile_sha256=$coreprofile |
+         .core_manifest_sha256=$coremanifest | .root_size_mib=$rootmib |
          .kernel_command_line="rdinit=/usr/lib/systemd/systemd root=PARTLABEL=linux rw rootfstype=ext4 rootwait rd.retry=60 rd.timeout=65 rd.fstab=no rd.gpt-auto=no systemd.gpt_auto=no systemd.unit=multi-user.target senemos.debug=cdc-acm console=tty0 console=ttyAMA0 fbcon=map:0 fbcon=font:TER16x32 consoleblank=0 loglevel=7 panic=0 regulator_ignore_unused clk_ignore_unused pd_ignore_unused" |
          .kernel_command_line |= sub("root=PARTLABEL=linux"; "root=PARTLABEL="+$label) |
+         .kernel_command_line |= sub("systemd.unit=multi-user.target"; "systemd.unit="+$target) |
          .root_partlabel=$label | .root_selector=("PARTNAME-"+$label) |
          .partition_changes=[.boot_partition,$label]' "$profile")
     WORK=$BUILDER/build/boot-pair/pair-${hash:0:16}
@@ -200,6 +231,7 @@ pair_main() {
     mkdir -p "$WORK/recipe" "$WORK/kernel-recipe" "$WORK/inputs/kernel"
     pair_freeze_recipe "$kernel" "$recipe"
     printf '%s\n' "$effective" > "$WORK/inputs/profile.json"
+    printf '%s\n' "$variant" > "$WORK/inputs/variant"
     jq -er .kernel_command_line "$WORK/inputs/profile.json" > "$WORK/inputs/kernel-cmdline"
     cp "$stock" "$WORK/inputs/stock-boot.img"
     cp "$artifact/build-manifest.json" "$WORK/inputs/kernel-manifest.json"
@@ -216,6 +248,11 @@ pair_main() {
     fi
     # Reflinks preserve existing accepted artifacts without another full copy.
     cp --reflink=auto "$core/prepared-root.tar" "$WORK/inputs/prepared-root.tar"
+    if [[ $variant != tty ]]; then
+        cp "$core/profile.json" "$WORK/inputs/core-profile.json"
+        cp "$core/manifest.json" "$WORK/inputs/core-manifest.json"
+        cp "$core/prepared-root.sha256" "$WORK/inputs/core-prepared-root.sha256"
+    fi
     while IFS=$'\t' read -r name hash; do
         [[ $name == *.aarch64.rpm ]] || continue
         verify_cache "$artifact/$name" "$hash"
@@ -223,7 +260,7 @@ pair_main() {
     done < <(jq -r '.[]|[.file,.sha256]|@tsv' "$BUILDER/configs/boot/uke-boot-pair-rpms.json")
     mkdir -p "$WORK/inputs/support"
     while IFS=$'\t' read -r name hash; do
-        local package=$BUILDER/../artifacts/rpms/fedora-44/uke-boot-integration-0.1.0-13/$name
+        local package=$BUILDER/../artifacts/rpms/fedora-44/uke-boot-integration-0.1.0-14/$name
         verify_cache "$package" "$hash"
         cp "$package" "$WORK/inputs/support/$name"
     done < <(jq -r '.[]|[.file,.sha256]|@tsv' "$BUILDER/configs/boot/uke-boot-pair-support-rpms.json")

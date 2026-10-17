@@ -2,12 +2,13 @@ ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 ARG RECIPE_SHA
 LABEL org.senemos.recipe-sha256=${RECIPE_SHA}
-RUN dnf -y --setopt=install_weak_deps=False install \
+RUN dnf -y --setopt=install_weak_deps=False --setopt=ip_resolve=4 install \
     gcc-c++ e2fsprogs e2fsprogs-devel libselinux-devel \
     dosfstools mtools binutils jq zstd gzip cpio tar dtc ShellCheck \
     findutils coreutils diffutils util-linux ripgrep kmod libcap attr \
+    android-tools python3 \
     && if [ "$(uname -m)" = x86_64 ]; then \
-         dnf -y --setopt=install_weak_deps=False install binutils-aarch64-linux-gnu; fi \
+         dnf -y --setopt=install_weak_deps=False --setopt=ip_resolve=4 install binutils-aarch64-linux-gnu; fi \
     && dnf clean all
 ENV LANG=C.UTF-8 LC_ALL=C.UTF-8 TZ=UTC
 WORKDIR /work

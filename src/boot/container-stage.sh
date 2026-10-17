@@ -144,13 +144,29 @@ kernel)
     ;;
 pack)
     [[ -s /job/Image && -s /job/boot.config ]]
-    rm -f /job/fedora_boot.img.part /job/roundtrip-Image
-    /job/boot-image pack /job/inputs/stock-boot.img /job/Image /job/fedora_boot.img.part "$(jq -r .boot_partition_bytes "$profile")"
-    /job/boot-image inspect /job/fedora_boot.img.part > /job/boot-header.json
-    jq -e '.header_version==4 and .ramdisk_bytes==0 and .signature_bytes==0 and .avb_footer_present==false and .image_bytes==100663296' /job/boot-header.json >/dev/null
-    /job/boot-image extract /job/fedora_boot.img.part /job/roundtrip-Image
+    rm -f /job/boot.img /job/roundtrip-Image
+    /job/boot-image pack /job/inputs/stock-boot.img /job/Image /job/boot.img "$(jq -r .boot_partition_bytes "$profile")"
+    /job/boot-image inspect /job/boot.img > /job/boot-header.json
+    /job/boot-image extract /job/boot.img /job/roundtrip-Image
     cmp /job/Image /job/roundtrip-Image
-    mv /job/fedora_boot.img.part /job/fedora_boot.img
+    truncate -s "$(jq -er .payload_end /job/boot-header.json)" /job/boot.img
+    stock_avb=$(avbtool info_image --image /job/inputs/stock-boot.img)
+    stock_rollback=$(printf '%s\n' "$stock_avb" | sed -n 's/^Rollback Index:[[:space:]]*//p')
+    [[ $stock_rollback =~ ^[0-9]+$ ]]
+    stock_props=()
+    while IFS= read -r prop; do stock_props+=(--prop "$prop"); done < <(
+        printf '%s\n' "$stock_avb" | sed -nE "s/^[[:space:]]*Prop: ([A-Za-z0-9_.-]+) -> '(.*)'$/\1:\2/p"
+    )
+    [[ " ${stock_props[*]} " == *'com.android.build.boot.os_version:'* ]]
+    avbtool add_hash_footer --image /job/boot.img --partition_name boot \
+        --partition_size "$(jq -er .boot_partition_bytes "$profile")" \
+        --algorithm NONE --salt "$(jq -er .stock_boot_sha256 "$profile")" \
+        --rollback_index "$stock_rollback" "${stock_props[@]}"
+    avbtool verify_image --image /job/boot.img
+    /job/boot-image inspect /job/boot.img > /job/boot-header.json
+    jq -e '.header_version==4 and .ramdisk_bytes==0 and .signature_bytes==0 and
+           .avb_footer_present==true and .image_bytes==100663296' /job/boot-header.json >/dev/null
+    mv /job/boot.img /job/fedora_boot.img
     cp "$profile" /job/profile.json
     (cd /job; sha256sum Image boot.config initramfs.cpio.gz fedora_boot.img independent-uke.dtb Module.symvers boot-header.json profile.json inputs/kernel-manifest.json inputs/applied-patches.txt > SHA256SUMS)
     jq -n --slurpfile profile /job/profile.json --slurpfile header /job/boot-header.json \

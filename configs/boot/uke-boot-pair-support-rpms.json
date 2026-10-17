@@ -1,14 +1,14 @@
 [
   {
-    "file": "uke-boot-integration-0.1.0-13.fc44.aarch64.rpm",
-    "sha256": "7be8ce8de573baeabfb8e4608346927854c9995adc1dea4973e7f42a09945907"
+    "file": "uke-boot-integration-0.1.0-14.fc44.aarch64.rpm",
+    "sha256": "102b4a53e0edc71e6a5ca020d90f953d360157c94e30890947b8249101057640"
   },
   {
-    "file": "uke-esp32-cdc-0.1.0-13.fc44.aarch64.rpm",
-    "sha256": "e689c51a1e881e21c8c13f7716c7f461e4a92ead49559aac9b9f4630d2656594"
+    "file": "uke-esp32-cdc-0.1.0-14.fc44.aarch64.rpm",
+    "sha256": "6fd0778b98084a458b526be2f6c8357ea9e06ecd5944236ce7ca085076652c1c"
   },
   {
-    "file": "uke-cdc-debug-0.1.0-13.fc44.aarch64.rpm",
-    "sha256": "6d0411ab3aa9a171da0e6f79b96f7fefee053421bd9401eb86255c098d8290f0"
+    "file": "uke-cdc-debug-0.1.0-14.fc44.aarch64.rpm",
+    "sha256": "a80ed27802ec378550ca489bb31700f00b9cd6fdae3008bc0e81dfc65eda1a86"
   }
 ]

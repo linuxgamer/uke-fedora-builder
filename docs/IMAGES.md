@@ -9,9 +9,11 @@ The 16 October 2026 Fedora 44 Core build passed offline package preparation,
 root/initramfs audits, SELinux labeling and EXT4/FAT/UKI readback on an x86_64
 host with AArch64 emulation. Tablet boot remains untested.
 
-The target is Fedora 44 AArch64 Core. Other distributions and
-desktop targets fail explicitly. Console roots reject installed Wayland and X11
-session entries from any desktop environment. The host entry prepares official
+The Core target is Fedora 44 AArch64. Other distributions and desktop targets
+fail explicitly in the Core recipe. Separate KDE and GNOME roots feed the
+stock boot-pair builder through `--variant kde` or `--variant gnome`.
+Console roots reject installed Wayland and X11 session entries from any desktop
+environment. The host entry prepares official
 prerequisites on Fedora, Debian/Ubuntu, openSUSE, Arch and Alpine/postmarketOS, selects working
 Podman/Docker and limits jobs to two CPUs and 3 GiB per container. Native
 AArch64 and x86_64 with official QEMU binfmt are supported code paths. Earlier

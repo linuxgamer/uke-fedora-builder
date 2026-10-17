@@ -50,6 +50,19 @@ dt-test)
     ;;
 audit-initramfs)
     verify /job/inputs/prepared-root.tar "$(jq -r .core_prepared_root_sha256 "$profile")"
+    if [[ $(jq -er '.variant // "tty"' "$profile") != tty ]]; then
+        verify /job/inputs/core-profile.json "$(jq -er .core_profile_sha256 "$profile")"
+        verify /job/inputs/core-manifest.json "$(jq -er .core_manifest_sha256 "$profile")"
+        [[ $(cat /job/inputs/core-prepared-root.sha256) == "$(jq -er .core_prepared_root_sha256 "$profile")  prepared-root.tar" ]]
+        jq -e --arg variant "$(jq -er .variant "$profile")" \
+            --arg root "$(jq -er .core_prepared_root_sha256 "$profile")" \
+            '.variant==$variant and .prepared_root_sha256==$root and .static_checks_passed==true' \
+            /job/inputs/core-manifest.json >/dev/null
+        bash /builder/src/boot-pair/check-desktop-variant.sh /job/root "$(jq -er .variant "$profile")"
+        [[ $(readlink /job/root/etc/systemd/system/display-manager.service) == "/usr/lib/systemd/system/$(if [[ $(jq -r .variant "$profile") == kde ]]; then echo sddm; else echo gdm; fi).service" ]]
+        [[ $(readlink /job/root/etc/systemd/system/getty@tty6.service) == /dev/null ]]
+        grep -Fx 'TTYPath=/dev/tty6' /job/root/etc/systemd/system/uke-screen-shell.service.d/90-desktop-vt.conf
+    fi
     rm -rf /job/initramfs-root
     mkdir /job/initramfs-root
     (cd /job/initramfs-root; gzip -cd /job/initramfs.cpio.gz | cpio -idm --quiet --no-absolute-filenames)
@@ -96,7 +109,9 @@ audit-initramfs)
         root_policy=/job/root-privacy-policy.json
     fi
     bash /builder/src/audit/check-target-elf.sh /job/root
-    bash /builder/src/audit/check-target-privacy.sh --namespace-policy "$root_policy" /job/root
+    privacy_args=(--namespace-policy "$root_policy")
+    if [[ $(cat /job/inputs/variant) != tty ]]; then privacy_args+=(--private-home "$SENEMOS_PRIVATE_HOST_HOME"); fi
+    bash /builder/src/audit/check-target-privacy.sh "${privacy_args[@]}" /job/root
     while IFS= read -r -d '' file; do
         if [[ $(od -An -tx1 -N4 "$file" | tr -d ' \n') == 7f454c46 ]]; then
             if [[ -s /job/inputs/early-firmware.tar ]] && jq -e --arg path "${file#/job/initramfs-root/}" 'any(.files[]; .path==$path)' /builder/configs/firmware/uke-adsp-early.json >/dev/null; then
@@ -177,7 +192,7 @@ compose)
     tar --numeric-owner --same-owner --xattrs --xattrs-include='security.capability' -xf /job/pair-root.tar -C /job/root
     # Resume a failed composition without trusting a partial image. Completed
     # candidates are returned by the host entry before reaching this stage.
-    for file in fedora_boot.img roundtrip-Image system.raw.img system.img system.roundtrip.img; do
+    for file in boot.img fedora_boot.img roundtrip-Image system.raw.img system.img system.roundtrip.img; do
         [[ ! -e /job/$file ]] || { [[ -f /job/$file && ! -L /job/$file ]]; rm "/job/$file"; }
     done
     rm -rf /job/ext4-readback /job/sparse-fixtures
@@ -189,11 +204,34 @@ compose)
     install -m644 /job/inputs/profile.json "$root/usr/lib/uke-boot-pair/profile.json"
     g++ -std=c++20 -O2 -Wall -Wextra -Werror /builder/src/boot/boot-image.cpp -o /job/boot-image
     bash /builder/tests/boot-image-contract.sh /job/boot-image
-    /job/boot-image pack /job/inputs/stock-boot.img /job/Image /job/fedora_boot.img "$(jq -r .boot_partition_bytes "$profile")"
-    /job/boot-image inspect /job/fedora_boot.img > /job/boot-header.json
-    /job/boot-image extract /job/fedora_boot.img /job/roundtrip-Image
+    /job/boot-image pack /job/inputs/stock-boot.img /job/Image /job/boot.img "$(jq -r .boot_partition_bytes "$profile")"
+    /job/boot-image inspect /job/boot.img > /job/boot-header.json
+    /job/boot-image extract /job/boot.img /job/roundtrip-Image
     cmp /job/Image /job/roundtrip-Image
-    jq -e '.header_version==4 and .ramdisk_bytes==0 and .signature_bytes==0 and .avb_footer_present==false' /job/boot-header.json >/dev/null
+    # ABL rejected the footerless v4 image before Linux ran. A valid unsigned
+    # boot vbmeta/footer preserves the unlocked-device development profile.
+    truncate -s "$(jq -er .payload_end /job/boot-header.json)" /job/boot.img
+    stock_avb=$(avbtool info_image --image /job/inputs/stock-boot.img)
+    stock_rollback=$(printf '%s\n' "$stock_avb" | sed -n 's/^Rollback Index:[[:space:]]*//p')
+    [[ $stock_rollback =~ ^[0-9]+$ ]]
+    # ABL reads Android version from the boot footer on header-v4 images.
+    # Carry the pinned stock template's properties through unchanged.
+    stock_props=()
+    while IFS= read -r prop; do stock_props+=(--prop "$prop"); done < <(
+        printf '%s\n' "$stock_avb" | sed -nE "s/^[[:space:]]*Prop: ([A-Za-z0-9_.-]+) -> '(.*)'$/\1:\2/p"
+    )
+    [[ " ${stock_props[*]} " == *'com.android.build.boot.os_version:'* ]]
+    avbtool add_hash_footer --image /job/boot.img --partition_name boot \
+        --partition_size "$(jq -er .boot_partition_bytes "$profile")" \
+        --algorithm NONE --salt "$(jq -er .stock_boot_sha256 "$profile")" \
+        --rollback_index "$stock_rollback" "${stock_props[@]}"
+    avbtool verify_image --image /job/boot.img
+    /job/boot-image inspect /job/boot.img > /job/boot-header.json
+    jq -e --argjson bytes "$(jq -er .boot_partition_bytes "$profile")" \
+        '.header_version==4 and .ramdisk_bytes==0 and .signature_bytes==0 and
+         .avb_footer_present==true and .image_bytes==$bytes and .payload_end<.image_bytes' \
+        /job/boot-header.json >/dev/null
+    mv /job/boot.img /job/fedora_boot.img
     root_bytes=$(($(jq -r .root_size_mib "$profile") * 1024 * 1024))
     truncate -s "$root_bytes" /job/system.raw.img
     root_uid=$(stat -c %u "$root") root_gid=$(stat -c %g "$root") root_mode=$(stat -c %a "$root")
@@ -215,7 +253,9 @@ compose)
     mkdir /job/ext4-readback
     debugfs -R 'rdump / /job/ext4-readback' /job/system.raw.img
     bash /builder/src/audit/check-target-elf.sh /job/ext4-readback
-    bash /builder/src/audit/check-target-privacy.sh --namespace-policy /builder/configs/images/selinux-namespace-policy.json /job/ext4-readback
+    privacy_args=(--namespace-policy /builder/configs/images/selinux-namespace-policy.json)
+    if [[ $(cat /job/inputs/variant) != tty ]]; then privacy_args+=(--private-home "$SENEMOS_PRIVATE_HOST_HOME"); fi
+    bash /builder/src/audit/check-target-privacy.sh "${privacy_args[@]}" /job/ext4-readback
     cmp "$root/etc/fstab" /job/ext4-readback/etc/fstab
     cmp /job/Image /job/ext4-readback/usr/lib/uke-boot-pair/Image
     cmp /job/initramfs.cpio.gz "/job/ext4-readback/boot/initramfs-$release.img"

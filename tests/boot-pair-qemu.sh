@@ -22,7 +22,10 @@ qmp() {
 }
 for name in correct changed-uuid wrong-partname wrong-fstype duplicate-partname; do
     log=$out/$name.serial.log
-    timeout --signal=TERM --kill-after=5s 240 qemu-system-aarch64 \
+    variant=$(jq -r '.variant // "tty"' "$out/profile.json")
+    vm_timeout=240
+    [[ $variant == tty ]] || vm_timeout=420
+    timeout --signal=TERM --kill-after=5s "$vm_timeout" qemu-system-aarch64 \
         -machine virt,gic-version=3 -cpu max -accel tcg,thread=single -m 1536 -smp 1 \
         -display none -nic none -monitor none -serial "file:$log" \
         -qmp tcp:127.0.0.1:4444,server=on,wait=off \
@@ -37,7 +40,7 @@ for name in correct changed-uuid wrong-partname wrong-fstype duplicate-partname;
             if [[ $name == correct || $name == changed-uuid ]] && grep -F UKE_FEDORA_EXT4_ROOT_READY "$log" >/dev/null &&
                grep -F 'pid1=/usr/lib/systemd/systemd' "$log" >/dev/null &&
                grep -F selinux=1 "$log" >/dev/null &&
-               grep -F 'unit=uke-screen-shell ' "$log" | grep -F 'res=success' >/dev/null; then observed=1; break; fi
+               grep -F 'Started ' "$log" | grep -F 'uke-screen-shell.service' >/dev/null; then observed=1; break; fi
             if [[ $name != correct && $name != changed-uuid ]] && grep -F UKE_ROOT_REJECTED "$log" >/dev/null; then observed=1; break; fi
         fi
         kill -0 "$vm_pid" 2>/dev/null || break
@@ -50,16 +53,21 @@ for name in correct changed-uuid wrong-partname wrong-fstype duplicate-partname;
         grep -F '/dev/vda1 ext4' "$out/$name.status.txt" >/dev/null
         grep -F 'pid1=/usr/lib/systemd/systemd' "$out/$name.status.txt" >/dev/null
         grep -F selinux=1 "$out/$name.status.txt" >/dev/null
-        if [[ $(jq -r '.root_partlabel // "linux"' "$out/profile.json") == userdata ]]; then
-            grep -F 'EXT4-fs (vda1): resized filesystem to 819200' "$log" >/dev/null || {
-                echo 'Userdata root did not grow to the larger partition' >&2; exit 1;
-            }
+        if [[ $variant != tty ]]; then
+            ready=0
+            for ((i=0;i<90;++i)); do
+                if grep -F 'Reached target ' "$log" | grep -F 'graphical.target' >/dev/null; then ready=1; break; fi
+                sleep 1
+            done
+            ((ready)) || { echo 'Graphical target was not reached' >&2; exit 1; }
         fi
         exec 3<>/dev/tcp/127.0.0.1/4444
         IFS= read -r -t 5 greeting <&3
         [[ $greeting == *'"QMP"'* ]]
         qmp '{"execute":"qmp_capabilities"}'
-        qmp '{"execute":"human-monitor-command","arguments":{"command-line":"sendkey ctrl-alt-f1"}}'
+        vt=f1
+        [[ $(jq -r '.variant // "tty"' "$out/profile.json") == tty ]] || vt=f6
+        qmp "{\"execute\":\"human-monitor-command\",\"arguments\":{\"command-line\":\"sendkey ctrl-alt-$vt\"}}"
         sleep 5
         qmp '{"execute":"human-monitor-command","arguments":{"command-line":"sendkey ctrl-u"}}'
         # echo realrootok > /dev/ttyAMA0 through the VM's actual USB keyboard.
@@ -73,6 +81,23 @@ for name in correct changed-uuid wrong-partname wrong-fstype duplicate-partname;
             sleep 1
         done
         ((entered)) || { echo 'Real-root local TTY keyboard command not observed' >&2; exit 1; }
+        if [[ $(jq -r '.root_partlabel // "linux"' "$out/profile.json") == userdata ]]; then
+            # Query the mounted filesystem through the real-root shell. Kernel
+            # resize messages can be hidden by the tablet console log level.
+            qmp "{\"execute\":\"human-monitor-command\",\"arguments\":{\"command-line\":\"sendkey ctrl-alt-$vt\"}}"
+            sleep 2
+            for key in t u n e 2 f s spc minus l spc slash d e v slash v d a 1 spc shift-dot spc slash d e v slash t t y shift-a shift-m shift-a 0 ret; do
+                qmp "{\"execute\":\"human-monitor-command\",\"arguments\":{\"command-line\":\"sendkey $key\"}}"
+                sleep 0.15
+            done
+            expected_blocks=$((($(jq -er .root_size_mib "$out/profile.json") + 128) * 256))
+            grown=0
+            for ((i=0;i<15;++i)); do
+                if normalize "$log" | grep -Eq "Block count:[[:space:]]+$expected_blocks$"; then grown=1; break; fi
+                sleep 1
+            done
+            ((grown)) || { echo 'Userdata root did not grow to the larger partition' >&2; exit 1; }
+        fi
         printf '%s\n' '{"execute":"quit"}' >&3
         exec 3>&-
         wait "$vm_pid"; vm_pid=''
@@ -102,6 +127,7 @@ cat > "$out/result.json" <<JSON
   "test_script_sha256": "$(sha256sum "$0" | cut -d ' ' -f1)",
   "root_filesystem_growth": $(if [[ $(jq -r '.root_partlabel // "linux"' "$out/profile.json") == userdata ]]; then echo true; else echo false; fi),
   "root_partition_label": "$(jq -r '.root_partlabel // "linux"' "$out/profile.json")",
+  "variant": "$(jq -r '.variant // "tty"' "$out/profile.json")",
   "real_ext4_root_transition": true,
   "root_pid1_systemd": true,
   "selinux_enforcing": true,

@@ -8,7 +8,10 @@ fixture=$(mktemp -d)
 trap 'rm -rf "$fixture"' EXIT
 pair=$fixture/pair
 mkdir -p "$pair/qemu"
-truncate -s 100663296 "$pair/fedora_boot.img"
+truncate -s 4096 "$pair/fedora_boot.img"
+avbtool add_hash_footer --image "$pair/fedora_boot.img" --partition_name boot \
+    --partition_size 100663296 --algorithm NONE --salt 00 \
+    --prop com.android.build.boot.os_version:14
 # A tiny RAW/FILL-header fixture: preflight verifies header and the sealed
 # digest, not the full sparse decoder already exercised by codec tests.
 printf '\x3a\xff\x26\xed\x01\x00\x00\x00\x1c\x00\x0c\x00\x00\x10\x00\x00\x00\x00\x0c\x00\x68\x02\x00\x00\x00\x00\x00\x00' > "$pair/system.img"
@@ -18,7 +21,7 @@ jq -n --arg boot "$(sha256sum "$pair/fedora_boot.img" | cut -d ' ' -f1)" \
     --arg system "$(sha256sum "$pair/system.img" | cut -d ' ' -f1)" \
     --arg vm "$(sha256sum "$pair/qemu/result.json" | cut -d ' ' -f1)" \
     --slurpfile result "$pair/qemu/result.json" \
-    '{schema_version:1,profile:{device:"uke",mode:"stock-abl-ext4-root",distribution:"fedora",release:"44",root_size_mib:3072,boot_partition_bytes:100663296,root_uuid:"03ea9569-c96d-cb08-0a64-53c6f816aa32",kernel_command_line:"root=UUID=03ea9569-c96d-cb08-0a64-53c6f816aa32 rw"},sha256:{boot:$boot,system:$system},checks:{module_byte_match:1144,privacy:true,sparse_roundtrip:true,full_sparse_logical_coverage:true},qemu_tested:true,qemu_evidence:{sha256:$vm,result:$result[0]},boot_tested:false,hardware_tested:false,flash_executed:false}' > "$pair/manifest.json"
+    '{schema_version:1,profile:{device:"uke",mode:"stock-abl-ext4-root",distribution:"fedora",release:"44",avb_state:"unsigned-hash-footer",root_size_mib:3072,boot_partition_bytes:100663296,root_uuid:"03ea9569-c96d-cb08-0a64-53c6f816aa32",kernel_command_line:"root=UUID=03ea9569-c96d-cb08-0a64-53c6f816aa32 rw"},sha256:{boot:$boot,system:$system},checks:{module_byte_match:1144,privacy:true,sparse_roundtrip:true,full_sparse_logical_coverage:true},qemu_tested:true,qemu_evidence:{sha256:$vm,result:$result[0]},boot_tested:false,hardware_tested:false,flash_executed:false}' > "$pair/manifest.json"
 cp "$pair/manifest.json" "$fixture/original-manifest"
 checksums() { (cd "$pair"; sha256sum fedora_boot.img system.img manifest.json qemu/result.json packages.tsv kernel.config validation.json INSTALL.md README.txt > SHA256SUMS); }
 checksums
@@ -28,6 +31,21 @@ run_check() {
     (image_main --check-device --pair "$pair" "$@") > "$fixture/result.json" 2> "$fixture/stderr" || actual=$?
     [[ $actual == "$expected" ]] || { cat "$fixture/stderr"; printf 'Expected %s, got %s\n' "$expected" "$actual" >&2; exit 1; }
 }
+run_check 0
+cp "$pair/fedora_boot.img" "$fixture/original-boot"
+printf '\000\000\000\000' | dd of="$pair/fedora_boot.img" bs=1 seek=$((100663296-64)) conv=notrunc status=none
+checksums
+run_check 1
+cp "$fixture/original-boot" "$pair/fedora_boot.img"
+checksums
+run_check 0
+truncate -s 4096 "$pair/fedora_boot.img"
+avbtool add_hash_footer --image "$pair/fedora_boot.img" --partition_name boot \
+    --partition_size 100663296 --algorithm NONE --salt 00
+checksums
+run_check 1
+cp "$fixture/original-boot" "$pair/fedora_boot.img"
+checksums
 run_check 0
 jq -e '.status=="local-pair-verified" and .transport=="offline" and
        .live_device_checked==false and .device=="unknown" and

@@ -7,7 +7,7 @@ mkdir -p "$out"
 partlabel=$(jq -r '.profile.root_partlabel // "linux"' "$candidate/manifest.json")
 [[ $partlabel == userdata || $partlabel == linux ]]
 bytes=$(stat -c %s "$candidate/system.raw.img")
-[[ $bytes == 3221225472 ]]
+[[ $bytes == $(($(jq -er '.profile.root_size_mib' "$candidate/manifest.json") * 1024 * 1024)) ]]
 # Exercise first-boot growth without changing the GPT on a real device.
 partition_bytes=$bytes
 [[ $partlabel != userdata ]] || partition_bytes=$((bytes + 128*1024*1024))

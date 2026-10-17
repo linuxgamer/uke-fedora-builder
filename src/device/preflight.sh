@@ -47,6 +47,7 @@ device_pair_verify() {
         .profile.root_uuid as $uuid |
         .schema_version==1 and .profile.device=="uke" and
         .profile.mode=="stock-abl-ext4-root" and .profile.distribution=="fedora" and
+        .profile.avb_state=="unsigned-hash-footer" and
         .profile.release=="44" and .profile.root_size_mib==3072 and
         .profile.boot_partition_bytes==$boot_bytes and $boot_bytes==100663296 and
         (.profile.root_uuid|test("^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$")) and
@@ -77,6 +78,16 @@ device_pair_verify() {
         .qemu_evidence.result.wrong_partition_name_rejected==true and
         .boot_tested==false and .hardware_tested==false and .flash_executed==false
         ' "$pair/manifest.json" >/dev/null || die 'Pair manifest or VM result is incompatible'
+    if [[ -f $pair/boot-header.json ]]; then
+        jq -e '.header_version==4 and .avb_footer_present==true and .image_bytes==100663296' \
+            "$pair/boot-header.json" >/dev/null || die 'Boot image has no reviewed AVB footer'
+    fi
+    [[ $(od -An -tx1 -j $((100663296-64)) -N4 "$pair/fedora_boot.img" | tr -d ' \n') == 41564266 ]] ||
+        die 'Boot image AVB footer magic is missing'
+    local avb_info footer_os_version
+    avb_info=$(avbtool info_image --image "$pair/fedora_boot.img") || die 'Boot AVB metadata is invalid'
+    footer_os_version=$(printf '%s\n' "$avb_info" | sed -n "s/^[[:space:]]*Prop: com\.android\.build\.boot\.os_version -> '\([0-9][0-9]*\)'$/\1/p")
+    [[ $footer_os_version =~ ^[0-9]+$ ]] || die 'Boot AVB footer lacks the OS version required by ABL'
     # Read only the sparse header; the checksums bind the previously decoded
     # complete payload. The logical size, not the compressed file size, matters.
     local -a header
@@ -98,7 +109,7 @@ device_preflight_main() {
         case $key in --pair) pair=$value;; --report) report=$value;; esac
         key=''; shift
     done
-    for command in jq sha256sum stat od tr cut; do
+    for command in jq sha256sum stat od tr cut sed avbtool; do
         command -v "$command" >/dev/null 2>&1 || die "Missing host check tool: $command"
     done
     [[ -n $pair ]] || die '--pair must identify the coordinated delivery directory'

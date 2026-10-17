@@ -26,7 +26,12 @@ rpm --root "$root" -V senemos-uke-linux-kernel-mainline{,-core,-modules,-dtbs}
 rpm --root "$root" --restore uke-boot-integration uke-esp32-cdc
 rpm --root "$root" -V uke-boot-integration uke-esp32-cdc
 rpm --root "$root" -qa --qf '%{NAME}\t%{VERSION}-%{RELEASE}\t%{ARCH}\n' | sort > /job/installed-rpms.tsv
-bash /builder/src/audit/check-console-session.sh "$root"
+variant=$(cat /job/inputs/variant)
+case $variant in
+    tty) bash /builder/src/audit/check-console-session.sh "$root";;
+    kde|gnome) bash /builder/src/boot-pair/check-desktop-variant.sh "$root" "$variant";;
+    *) echo "Unsupported pair variant: $variant" >&2; exit 1;;
+esac
 partlabel=$(sed -n 's/.* root=PARTLABEL=\([^ ]*\).*/\1/p' /job/inputs/kernel-cmdline)
 [[ $partlabel == userdata || $partlabel == linux ]]
 root_options=defaults
@@ -44,6 +49,21 @@ rm -f "$root/etc/systemd/system/sysinit.target.wants/debug-shell.service" \
     "$root/etc/systemd/system/multi-user.target.wants/uke-esp32-cdc-log.service" \
     "$root/etc/systemd/system/debug-shell.service.d/90-uke-core.conf"
 ln -sfn /dev/null "$root/etc/systemd/system/getty@tty1.service"
+if [[ $variant != tty ]]; then
+    # Keep the local bring-up shell on a VT separate from the login manager.
+    install -d -m755 "$root/etc/systemd/system/uke-screen-shell.service.d"
+    cat > "$root/etc/systemd/system/uke-screen-shell.service.d/90-desktop-vt.conf" <<'EOF'
+[Unit]
+Conflicts=
+Conflicts=getty@tty6.service
+[Service]
+TTYPath=/dev/tty6
+EOF
+    ln -sfn /dev/null "$root/etc/systemd/system/getty@tty6.service"
+    manager=sddm
+    [[ $variant != gnome ]] || manager=gdm
+    ln -sfn "/usr/lib/systemd/system/$manager.service" "$root/etc/systemd/system/display-manager.service"
+fi
 for unit in uke-screen-shell uke-cdc-shell uke-root-status; do
     install -Dm644 "/builder/src/boot-pair/$unit.service" "$root/usr/lib/systemd/system/$unit.service"
     mkdir -p "$root/etc/systemd/system/multi-user.target.wants"
@@ -58,6 +78,7 @@ for unit in uke-usb-network uke-usb-network-shell; do
 done
 install -Dm755 /builder/src/boot-pair/screen-shell.sh "$root/usr/libexec/uke-screen-shell"
 install -Dm755 /builder/src/boot-pair/root-status.sh "$root/usr/libexec/uke-root-status"
+install -Dm644 /builder/src/boot-pair/console-printk.conf "$root/etc/sysctl.d/90-uke-console.conf"
 # Automatic native-COPR updates must not silently replace the module tuple of
 # this built-in-initramfs stock-ABL candidate. Update through a rebuilt pair.
 printf '\nexcludepkgs=senemos-uke-linux-kernel-mainline*\n' >> "$root/etc/dnf/dnf.conf"
