@@ -64,6 +64,10 @@ make -C uke-linux-hardware-support/uke-sensors touchscreen-srpm
 make -C uke-linux-hardware-support/uke-platform-runtime srpm
 make -C uke-linux-hardware-support/uke-boot srpm
 make -C uke-linux-hardware-support/uke-desktop-integration bluetooth-srpm
+make -C uke-linux-hardware-support/xiaomi-uke-firmware fedora44-image-data-srpm
+for package in libssc iio-sensor-proxy uke-ssc-fileservice; do
+    make -C uke-linux-hardware-support/uke-sensors PACKAGE="$package" srpm
+done
 tops=(
   senemos-uke-kernel/build/srpm/rpmbuild
   uke-linux-hardware-support/uke-core-meta/build/srpm/rpmbuild
@@ -78,6 +82,19 @@ for top in "${tops[@]}"; do
     dnf5 -y builddep "${specs[0]}"
     rpmbuild -ba --target aarch64 --define "_topdir /work/$top" "${specs[0]}"
 done
+sensor_root=uke-linux-hardware-support/uke-sensors/build/srpm
+for package in libssc iio-sensor-proxy uke-ssc-fileservice; do
+    top=$sensor_root/$package/rpmbuild
+    spec=$top/SPECS/$package.spec
+    dnf5 -y builddep "$spec"
+    rpmbuild -ba --target aarch64 --define "_topdir /work/$top" "$spec"
+    if [[ $package == libssc ]]; then
+        dnf5 -y install "$top"/RPMS/aarch64/libssc-devel-0.4.4-*.fc44.aarch64.rpm
+    fi
+done
+top=uke-linux-hardware-support/xiaomi-uke-firmware/build/fedora44-image-data/rpmbuild
+rpmbuild -ba --target noarch --define "_topdir /work/$top" \
+    "$top/SPECS/uke-fedora44-oem-data.spec"
 BUILD_RPMS
 
 kernel_top=$workspace/senemos-uke-kernel/build/srpm/rpmbuild
@@ -94,6 +111,10 @@ cp "$workspace"/uke-linux-hardware-support/uke-sensors/build/rpmbuild/RPMS/aarch
 cp "$workspace"/uke-linux-hardware-support/uke-platform-runtime/build/srpm/rpmbuild/RPMS/aarch64/uke-battery-observer-0.1.0-*.fc44.aarch64.rpm "$hardware_rpms/"
 cp "$workspace"/uke-linux-hardware-support/uke-boot/build/srpm/rpmbuild/RPMS/aarch64/uke-wifi-factory-0.1.0-*.fc44.aarch64.rpm "$hardware_rpms/"
 cp "$workspace"/uke-linux-hardware-support/uke-desktop-integration/build/bluetooth-srpm/rpmbuild/RPMS/aarch64/uke-bluetooth-0.1.0-*.fc44.aarch64.rpm "$hardware_rpms/"
+cp "$workspace"/uke-linux-hardware-support/uke-sensors/build/srpm/libssc/rpmbuild/RPMS/aarch64/libssc-0.4.4-*.fc44.aarch64.rpm "$hardware_rpms/"
+cp "$workspace"/uke-linux-hardware-support/uke-sensors/build/srpm/iio-sensor-proxy/rpmbuild/RPMS/aarch64/iio-sensor-proxy-3.9-*.fc44.aarch64.rpm "$hardware_rpms/"
+cp "$workspace"/uke-linux-hardware-support/uke-sensors/build/srpm/uke-ssc-fileservice/rpmbuild/RPMS/aarch64/uke-ssc-fileservice-2026.09.21-*.fc44.aarch64.rpm "$hardware_rpms/"
+cp "$workspace"/uke-linux-hardware-support/xiaomi-uke-firmware/build/fedora44-image-data/rpmbuild/RPMS/noarch/uke-fedora44-oem-data-3.0.303.0-*.fc44.noarch.rpm "$hardware_rpms/"
 
 for profile in tty kde gnome phosh plasma-mobile; do
     root_mib=4096

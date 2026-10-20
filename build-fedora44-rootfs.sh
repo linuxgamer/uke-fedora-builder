@@ -48,7 +48,11 @@ if [[ ${1:-} == --inside ]]; then
         /hardware-rpms/uke-touchscreen-0.1.0-*.fc44.aarch64.rpm \
         /hardware-rpms/uke-battery-observer-0.1.0-*.fc44.aarch64.rpm \
         /hardware-rpms/uke-wifi-factory-0.1.0-*.fc44.aarch64.rpm \
-        /hardware-rpms/uke-bluetooth-0.1.0-*.fc44.aarch64.rpm
+        /hardware-rpms/uke-bluetooth-0.1.0-*.fc44.aarch64.rpm \
+        /hardware-rpms/libssc-0.4.4-*.fc44.aarch64.rpm \
+        /hardware-rpms/iio-sensor-proxy-3.9-*.fc44.aarch64.rpm \
+        /hardware-rpms/uke-ssc-fileservice-2026.09.21-*.fc44.aarch64.rpm \
+        /hardware-rpms/uke-fedora44-oem-data-3.0.303.0-*.fc44.noarch.rpm
     rpm --root "$root" -q --qf '%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n' \
         uke-touchscreen uke-battery-observer uke-wifi-factory uke-bluetooth | \
         awk '($1 == "uke-touchscreen" && $3 ~ /^([8-9]|[1-9][0-9]+)\.fc44$/) ||
@@ -57,7 +61,16 @@ if [[ ${1:-} == --inside ]]; then
              ($1 == "uke-bluetooth" && $3 ~ /^([6-9]|[1-9][0-9]+)\.fc44$/) {
                 if ($2 == "0.1.0" && $4 == "aarch64") good++
              } END { exit good != 4 || NR != 4 }' || die 'Expected four selected Fedora 44 hardware RPMs'
+    rpm --root "$root" -q --qf '%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n' \
+        libssc iio-sensor-proxy uke-ssc-fileservice uke-fedora44-oem-data | \
+        awk '($1 == "libssc" && $2 == "0.4.4" && $3 ~ /^[1-9][0-9]*\.fc44$/ && $4 == "aarch64") ||
+             ($1 == "iio-sensor-proxy" && $2 == "3.9" && $3 ~ /^[1-9][0-9]*\.fc44$/ && $4 == "aarch64") ||
+             ($1 == "uke-ssc-fileservice" && $2 == "2026.09.21" && $3 ~ /^[1-9][0-9]*\.fc44$/ && $4 == "aarch64") ||
+             ($1 == "uke-fedora44-oem-data" && $2 == "3.0.303.0" && $3 ~ /^[1-9][0-9]*\.fc44$/ && $4 == "noarch") { good++ }
+             END { exit good != 4 || NR != 4 }' || die 'Expected Fedora 44 SSC and OEM data RPMs'
     "$root/usr/bin/systemctl" --root="$root" enable uke-touchscreen.service uke-battery.service uke-wifi-factory.service uke-bluetooth-address.service
+    install -Dm644 /builder/uke-ssc-fedora44.target "$root/usr/lib/systemd/system/uke-ssc-fedora44.target"
+    "$root/usr/bin/systemctl" --root="$root" enable uke-ssc-fedora44.target
     panel=$(cat /workspace/TOUCH-PANEL)
     case $panel in csot|tm) ;; *) die 'Invalid touch panel selection' ;; esac
     for name in normal.bin config.ini; do
@@ -190,6 +203,13 @@ for package in uke-touchscreen uke-battery-observer uke-wifi-factory uke-bluetoo
     ((${#matches[@]} == 1)) || die "Expected one Fedora 44 $package RPM in $hardware_rpms"
     hardware_files+=("${matches[0]}")
 done
+for entry in 'libssc:0.4.4:aarch64' 'iio-sensor-proxy:3.9:aarch64' \
+             'uke-ssc-fileservice:2026.09.21:aarch64' 'uke-fedora44-oem-data:3.0.303.0:noarch'; do
+    IFS=: read -r package version arch <<< "$entry"
+    mapfile -t matches < <(find "$hardware_rpms" -maxdepth 1 -type f -name "$package-$version-*.fc44.$arch.rpm" -print)
+    ((${#matches[@]} == 1)) || die "Expected one Fedora 44 $package RPM in $hardware_rpms"
+    hardware_files+=("${matches[0]}")
+done
 [[ ! -e $output ]] || die 'Output path already exists; select a new directory'
 mkdir -p "$output"
 trap 'printf "fedora44-rootfs: incomplete output retained at %s\n" "$output" >&2' ERR
@@ -213,5 +233,6 @@ sha256sum "$blobs/touch/$panel/normal.bin" "$blobs/touch/$panel/config.ini" "$bl
     -v "$here/configs/firstboot/uke-create-user:/builder/uke-create-user:ro" \
     -v "$here/configs/firstboot/uke-create-user.service:/builder/uke-create-user.service:ro" \
     -v "$here/configs/images/uke-persist.fstab:/builder/uke-persist.fstab:ro" \
+    -v "$here/configs/images/uke-ssc-fedora44.target:/builder/uke-ssc-fedora44.target:ro" \
     registry.fedoraproject.org/fedora:44 bash /builder.sh --inside
 printf 'Rootfs artifacts: %s/rootfs.tar.zst and %s/userdata.img\n' "$output" "$output"
