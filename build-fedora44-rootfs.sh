@@ -6,15 +6,15 @@ here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 usage() {
     cat <<'HELP'
 Usage: ./build-fedora44-rootfs.sh --profile tty|kde|gnome|phosh|plasma-mobile \
-       --kernel-rpms DIR --core-rpm FILE --hardware-rpms DIR --local-blobs DIR \
+       --kernel-rpms DIR --core-rpm FILE --hardware-rpms DIR \
        --output DIR [--touch-panel csot|tm] [--root-mib 4096]
 
 Compose a Fedora 44 AArch64 rootfs from Fedora packages and locally built
 Linux 7.2.11 and selected hardware RPMs. Requires Docker or Podman and
 AArch64 emulation on an x86_64 host. Output includes a sparse EXT4 image,
 the package inventory and hashes. The image includes OEM touch firmware and a
-tablet touch reference. An account is created locally
-on tty1 at the tablet's first boot. The builder never writes a device.
+tablet touch reference from the bundled, hash-pinned Uke OEM set. An account is
+created on tty1 at the tablet's first boot. The builder never writes a device.
 HELP
 }
 die() { printf 'fedora44-rootfs: %s\n' "$*" >&2; exit 1; }
@@ -149,24 +149,25 @@ if [[ ${1:-} == --inside ]]; then
     exit 0
 fi
 
-profile='' rpms='' core_rpm='' hardware_rpms='' blobs='' output='' panel=csot root_mib=4096
+profile='' rpms='' core_rpm='' hardware_rpms='' output='' panel=csot root_mib=4096
+blobs=$here/../uke-linux-hardware-support/xiaomi-uke-firmware/payload/oem-os3.0.303.0
 while (($#)); do
     case $1 in
-        --profile|--kernel-rpms|--core-rpm|--hardware-rpms|--local-blobs|--touch-panel|--output|--root-mib)
+        --profile|--kernel-rpms|--core-rpm|--hardware-rpms|--touch-panel|--output|--root-mib)
             (($# >= 2)) || die "Missing value for $1"
-            case $1 in --profile) profile=$2;; --kernel-rpms) rpms=$2;; --core-rpm) core_rpm=$2;; --hardware-rpms) hardware_rpms=$2;; --local-blobs) blobs=$2;; --touch-panel) panel=$2;; --output) output=$2;; --root-mib) root_mib=$2;; esac
+            case $1 in --profile) profile=$2;; --kernel-rpms) rpms=$2;; --core-rpm) core_rpm=$2;; --hardware-rpms) hardware_rpms=$2;; --touch-panel) panel=$2;; --output) output=$2;; --root-mib) root_mib=$2;; esac
             shift 2;;
         --help|-h) usage; exit 0;;
         *) die "Unknown argument: $1";;
     esac
 done
 case $profile in tty|kde|gnome|phosh|plasma-mobile) ;; *) die 'Unknown profile' ;; esac
-[[ -d $rpms && -f $core_rpm && -d $hardware_rpms && -d $blobs && -n $output ]] || die 'Provide --kernel-rpms, --core-rpm, --hardware-rpms, --local-blobs and --output'
+[[ -d $rpms && -f $core_rpm && -d $hardware_rpms && -d $blobs && -n $output ]] || die 'Provide --kernel-rpms, --core-rpm, --hardware-rpms and --output; bundled OEM files must be present'
 case $panel in csot|tm) ;; *) die 'Select csot or tm touch panel' ;; esac
 [[ $root_mib =~ ^[1-9][0-9]*$ ]] && ((root_mib >= 4096 && root_mib <= 65536)) || die 'Root image size must be 4096..65536 MiB'
 verify="$here/../uke-linux-hardware-support/xiaomi-uke-firmware/src/verify-local-blobs.sh"
 [[ -x $verify ]] || die "Local blob verifier missing: $verify"
-"$verify" --root "$blobs" || die 'Local OEM blobs are incomplete; see uke-linux-hardware-support/xiaomi-uke-firmware/docs/LOCAL-BLOBS.md'
+"$verify" --root "$blobs" || die 'Bundled OEM files are incomplete; see uke-linux-hardware-support/xiaomi-uke-firmware/docs/LOCAL-BLOBS.md'
 if command -v podman >/dev/null; then container=podman
 elif command -v docker >/dev/null; then container=docker
 else die 'Docker or Podman is required; host packages are not installed automatically'; fi
