@@ -22,3 +22,9 @@ newer Fedora packages may still be downloaded.
 The build command requires a new output directory each time. It never writes
 to a tablet. Cached output has the same source and package validation as a
 fresh build; physical boot and hardware behavior remain unverified.
+
+An interrupted kernel build has no completed RPM cache entry. On the next run,
+the builder moves its partial kernel output and initramfs base into a
+`previous-native-kernel-out.*` directory under the kernel RPM build directory
+before starting a clean build. These backups can be removed manually after
+the new images have been checked.

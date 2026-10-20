@@ -96,6 +96,13 @@ for top in "${tops[@]}"; do
     fi
     if [[ $top == senemos-uke-kernel/build/srpm/rpmbuild ]]; then
         rm -f -- "$top/.fedora44-kernel-cache/SOURCE-SHA256"
+        if [[ -e $top/native-kernel-out || -e $top/boot-userspace ]]; then
+            previous=$(mktemp -d "$top/previous-native-kernel-out.XXXXXXXX")
+            for path in native-kernel-out boot-userspace; do
+                [[ ! -e $top/$path ]] || mv -- "$top/$path" "$previous/"
+            done
+            printf 'Preserved the previous kernel work at %s\n' "$previous"
+        fi
     fi
     "${dnf[@]}" builddep "${specs[0]}"
     rpmbuild -ba --target aarch64 --define "_topdir /work/$top" "${specs[0]}"
