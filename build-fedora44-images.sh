@@ -56,7 +56,7 @@ fi
     -v "$workspace:/work" -w /work registry.fedoraproject.org/fedora:44 \
     bash -s <<'BUILD_RPMS'
 set -Eeuo pipefail
-dnf5 -y install rpm-build dnf5-plugins make git-core jq curl gnupg2 xz tar \
+dnf5 -y install rpm-build dnf5-plugins make git-core jq curl gnupg2 xz tar patch \
   gzip coreutils findutils diffutils
 git config --global --add safe.directory /work/senemos-uke-kernel
 make -C senemos-uke-kernel srpm
