@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Local-only Fedora 44 boot_a composition. This script never accesses a device.
+# Fedora 44 boot_a composition. This script never accesses a device.
 set -Eeuo pipefail
 
 here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
@@ -102,7 +102,7 @@ kernel_out=$(realpath -- "$kernel_out")
 stock=$(realpath -- "$stock")
 output=$(realpath -m -- "$output")
 [[ ! -e $output && ! -L $output ]] || die 'Output directory already exists'
-[[ -s $rootfs/userdata.img && -s $rootfs/userdata.raw.img && -s $rootfs/SHA256SUMS && -s $rootfs/LOCAL-ONLY.txt ]] || die 'Incomplete local-only Fedora 44 rootfs'
+[[ -s $rootfs/userdata.img && -s $rootfs/userdata.raw.img && -s $rootfs/SHA256SUMS ]] || die 'Incomplete Fedora 44 rootfs'
 (cd "$rootfs"; sha256sum -c SHA256SUMS) || die 'Rootfs checksums failed'
 [[ -s $source/boot-recipe/src/boot/dracut/root-guard.sh && -s $kernel_out/.config && -s $kernel_out/boot-initramfs.cpio.gz ]] || die 'Incomplete prepared Linux 7.2.11 build'
 release=$(sed -n 's/^kernel_release=//p' "$kernel_out/boot-manifest")
@@ -152,7 +152,7 @@ avbtool verify_image --image "$output/fedora_boot.img.part" || die 'AVB footer v
 jq -e '.avb_footer_present==true and .image_bytes==100663296 and .payload_end<.image_bytes' "$output/boot-header.json" >/dev/null || die 'Final boot image lacks a bounded AVB footer'
 mv "$output/fedora_boot.img.part" "$output/fedora_boot.img"
 cp --reflink=auto "$rootfs/userdata.img" "$output/userdata.img"
-cp "$rootfs/PROFILE-ID" "$rootfs/TOUCH-PANEL" "$rootfs/LOCAL-ONLY.txt" "$output/"
+cp "$rootfs/PROFILE-ID" "$rootfs/TOUCH-PANEL" "$rootfs/LOCAL-BLOBS.sha256" "$output/"
 jq -n --arg profile "$(cat "$rootfs/PROFILE-ID")" --arg release "$release" \
     --arg panel "$(cat "$rootfs/TOUCH-PANEL")" \
     --arg boot "$(sha256sum "$output/fedora_boot.img" | cut -d ' ' -f1)" \
@@ -163,9 +163,9 @@ jq -n --arg profile "$(cat "$rootfs/PROFILE-ID")" --arg release "$release" \
       profile:$profile,experimental_desktop:($profile=="phosh" or $profile=="plasma-mobile"),
       touch_panel:$panel,boot_partition:"boot_a",root_partition:"userdata",
       root_image_logical_bytes:$root_bytes,stock_boot_sha256:$stock,
-      sha256:{boot:$boot,userdata:$userdata},header:$header[0],local_only:true,
+      sha256:{boot:$boot,userdata:$userdata},header:$header[0],
       boot_tested:false,hardware_tested:false,device_write_executed:false}' > "$output/manifest.json"
 (cd "$output"; sha256sum fedora_boot.img userdata.img Image boot.config Module.symvers \
     boot-initramfs.cpio.gz stock-header.json boot-header.json manifest.json PROFILE-ID \
-    TOUCH-PANEL LOCAL-ONLY.txt > SHA256SUMS)
-printf 'Local-only pair: %s/fedora_boot.img and %s/userdata.img\n' "$output" "$output"
+    TOUCH-PANEL LOCAL-BLOBS.sha256 > SHA256SUMS)
+printf 'Image pair: %s/fedora_boot.img and %s/userdata.img\n' "$output" "$output"

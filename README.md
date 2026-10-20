@@ -6,9 +6,10 @@ Kernel sources and RPM rules are maintained in the [Senemos repository](https://
 
 ## Xiaomi Pad 7 Fedora 44 rootfs variants
 
-**Source status, 20 October 2026:** the local Fedora 44 path is prepared for
-owner builds. No new Fedora 44 RPM, rootfs, boot image or complete tablet boot
-has been verified from this revision. This path targets `boot_a` and the whole
+**Source status, 20 October 2026:** the Fedora 44 path is prepared for owner
+builds and release candidates through the same recipe. No new Fedora 44 RPM,
+rootfs, boot image or complete tablet boot has been verified from this revision.
+This path targets `boot_a` and the whole
 physical `userdata` partition. Phosh and Plasma Mobile are experimental.
 
 Build Linux 7.2.11 and the Fedora 44 AArch64 RPMs with the package specs in the
@@ -84,9 +85,10 @@ contain the separately pinned WPSS, ADSP or GPU firmware set; Wi-Fi, DSP and
 accelerated graphics are not qualified by this image recipe.
 
 After the RPMs exist, run the next block in **Bash on the host** from the
-workspace root. It creates five separate rootfs and boot pairs. Choose new
-output paths if an earlier attempt left
-an incomplete directory. The script requires the reviewed OS3.0.303.0 OEM
+workspace root. It creates five separate rootfs and boot pairs using the same
+OEM inputs for local use and a potential public release. Choose new
+output paths if an earlier attempt left an incomplete directory. The script
+requires the reviewed OS3.0.303.0 OEM
 `boot.img` and the locally extracted blob directory shown above.
 
 ```bash
@@ -136,19 +138,19 @@ the normal login or display manager starts. A keyboard connected to the tablet
 is needed for this text prompt; the root account stays locked. First-boot
 interaction has not yet been tested on Xiaomi Pad 7.
 
-Each pair contains `fedora_boot.img`, sparse `userdata.img`, checksums and a
-manifest. The boot builder verifies the fixed stock template, repacks the
+Each pair contains `fedora_boot.img`, sparse `userdata.img`, checksums, the
+selected OEM touch input hashes and a manifest. The boot builder verifies the fixed stock template, repacks the
 matched Image for `PARTLABEL=userdata`, and adds an unsigned AVB hash footer
 with reviewed stock boot metadata. It never flashes or selects a device slot.
-**These outputs are local build candidates, not public release assets.** The
-rootfs includes proprietary OEM files without recorded redistribution
-permission and a touch baseline measured on one tablet. The baseline itself is
-not an account secret; its portability and touch behavior on other units need
+The same rootfs and boot-pair recipes produce local images and release
+candidates; no separate blob-free variant is built. Each rootfs includes the
+selected OEM touch firmware and a baseline measured on one tablet. The
+baseline is not an account secret, but its behavior on other units needs
 qualification. No account or password hash is embedded, and there is no root
-debug shell. Keep the images private until the OEM-data distribution path and
-Xiaomi Pad 7 device checks are resolved. Replacing `userdata` destroys shared
-Android data. Preserve the Android slot B boot images and a complete data
-restore path before any device trial.
+debug shell. The redistribution grant for the exact OEM files must be recorded
+and checked before uploading images; Xiaomi Pad 7 device checks are also still
+open. Replacing `userdata` destroys shared Android data. Preserve the Android
+slot B boot images and a complete data restore path before any device trial.
 
 [Project status](https://github.com/MCC45TR/uke-linux) · [Architecture](docs/ARCHITECTURE.md) · [Development COPR](https://copr.fedorainfracloud.org/coprs/mcc45tr/uke-linux-test/) · [Image releases](https://github.com/MCC45TR/uke-linux-images/releases)
 

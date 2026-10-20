@@ -12,8 +12,8 @@ Usage: ./build-fedora44-rootfs.sh --profile tty|kde|gnome|phosh|plasma-mobile \
 Compose a Fedora 44 AArch64 rootfs from Fedora packages and locally built
 Linux 7.2.11 and selected hardware RPMs. Requires Docker or Podman and
 AArch64 emulation on an x86_64 host. Output includes a sparse EXT4 image,
-the package inventory and hashes. This local-only output includes proprietary
-touch firmware and a tablet-specific reference. An account is created locally
+the package inventory and hashes. The image includes OEM touch firmware and a
+tablet touch reference. An account is created locally
 on tty1 at the tablet's first boot. The builder never writes a device.
 HELP
 }
@@ -144,7 +144,7 @@ if [[ ${1:-} == --inside ]]; then
         /workspace/PROFILE-ID /workspace/ROOT-MIB \
         /workspace/KERNEL-RPMS.sha256 /workspace/CORE-RPM.sha256 \
         /workspace/HARDWARE-RPMS.sha256 /workspace/LOCAL-BLOBS.sha256 \
-        /workspace/TOUCH-PANEL /workspace/LOCAL-ONLY.txt | \
+        /workspace/TOUCH-PANEL | \
         sed 's|/workspace/||' > /workspace/SHA256SUMS
     exit 0
 fi
@@ -196,7 +196,6 @@ printf 'Fedora 44 %s; Linux 7.2.11-%s; source composition only\n' "$profile" "$k
 printf '%s\n' "$profile" > "$output/PROFILE-ID"
 printf '%s\n' "$root_mib" > "$output/ROOT-MIB"
 printf '%s\n' "$panel" > "$output/TOUCH-PANEL"
-printf '%s\n' 'LOCAL ONLY: contains proprietary OEM firmware and device-specific touch reference; do not publish this image or archive.' > "$output/LOCAL-ONLY.txt"
 sha256sum "$rpms"/senemos-uke-linux-kernel-mainline-{core,modules,dtbs}-7.2.11-"$kernel_rpm_release".fc44.aarch64.rpm | \
     sed "s|$rpms/||" > "$output/KERNEL-RPMS.sha256"
 printf '%s  %s\n' "$(sha256sum "$core_rpm" | cut -d ' ' -f1)" "$(basename -- "$core_rpm")" > "$output/CORE-RPM.sha256"
