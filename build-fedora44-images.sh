@@ -51,7 +51,8 @@ fi
 [[ -f $stock && ! -L $stock ]] || die 'Stock boot.img is missing'
 [[ $(sha256sum "$stock" | cut -d' ' -f1) == efdee1d4e1acd7f6e77615330dbcb045caeeccad8568d89fa6abd627f606e77f ]] || die 'Unexpected stock boot.img'
 
-"$container" run --rm --platform linux/arm64 --security-opt label=disable \
+# bash -s reads the build recipe from stdin; keep stdin attached to the container.
+"$container" run --rm -i --platform linux/arm64 --security-opt label=disable \
     -v "$workspace:/work" -w /work registry.fedoraproject.org/fedora:44 \
     bash -s <<'BUILD_RPMS'
 set -Eeuo pipefail
@@ -98,6 +99,7 @@ rpmbuild -ba --target noarch --define "_topdir /work/$top" \
 BUILD_RPMS
 
 kernel_top=$workspace/senemos-uke-kernel/build/srpm/rpmbuild
+[[ -d $kernel_top/BUILD ]] || die 'Kernel RPM build did not create its BUILD directory'
 kernel_rpms=$kernel_top/RPMS/aarch64
 kernel_out=$kernel_top/native-kernel-out
 guard=$(find "$kernel_top/BUILD" -type f \
