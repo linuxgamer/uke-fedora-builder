@@ -1,0 +1,19 @@
+[Unit]
+Description=Create the first Fedora account on the tablet
+After=local-fs.target systemd-user-sessions.service
+Before=getty@tty1.service display-manager.service
+ConditionPathExists=!/var/lib/uke-firstboot/user-created
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/uke-create-user
+StandardInput=tty-force
+StandardOutput=tty
+StandardError=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target

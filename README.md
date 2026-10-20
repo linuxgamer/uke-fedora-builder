@@ -77,15 +77,15 @@ the verified OEM touch files and a baseline captured from the owner's tablet.
 Extract it into the ignored `private/oem-blobs/` directory and check it with
 `xiaomi-uke-firmware/src/verify-local-blobs.sh` in the hardware component.
 The default panel is CSOT; pass `--touch-panel tm` only for a TM panel. The
-reference baseline is unit-specific. The archive also holds SSC and optional
+reference baseline was measured on one unit; it is not a secret credential,
+but its behavior on other panels has not been qualified. The archive also holds SSC and optional
 Bluetooth files, which this minimal image recipe does not install. It does not
 contain the separately pinned WPSS, ADSP or GPU firmware set; Wi-Fi, DSP and
 accelerated graphics are not qualified by this image recipe.
 
 After the RPMs exist, run the next block in **Bash on the host** from the
-workspace root. It creates five separate rootfs and boot pairs. Set a password
-for the temporary graphical account when prompted; the password itself is not
-placed on the command line. Choose new output paths if an earlier attempt left
+workspace root. It creates five separate rootfs and boot pairs. Choose new
+output paths if an earlier attempt left
 an incomplete directory. The script requires the reviewed OS3.0.303.0 OEM
 `boot.img` and the locally extracted blob directory shown above.
 
@@ -108,24 +108,18 @@ cp "$workspace"/uke-linux-hardware-support/uke-boot/build/srpm/rpmbuild/RPMS/aar
 cp "$workspace"/uke-linux-hardware-support/uke-desktop-integration/build/bluetooth-srpm/rpmbuild/RPMS/aarch64/uke-bluetooth-0.1.0-*.fc44.aarch64.rpm "$hardware_rpms/"
 blobs=$workspace/private/oem-blobs
 stock_boot=$workspace/private/uke_global_images_OS3.0.303.0.WOZMIXM_16.0/images/boot.img
-password_file=$workspace/private/fedora44-password.hash
-umask 077
-read -rsp 'Temporary Fedora password: ' uke_password < /dev/tty
-printf '\n'
-printf '%s\n' "$uke_password" | openssl passwd -6 -stdin > "$password_file"
-unset uke_password
 
 for profile in tty kde gnome phosh plasma-mobile; do
   rootfs=$workspace/private/fedora44-$profile-rootfs
   pair=$workspace/private/fedora44-$profile-pair
-  account=()
+  root_mib=4096
   if [[ $profile != tty ]]; then
-    account=(--user fedora --password-hash-file "$password_file" --root-mib 8192)
+    root_mib=8192
   fi
   ./uke-fedora-builder/build-fedora44-rootfs.sh \
     --profile "$profile" --kernel-rpms "$kernel_rpms" --core-rpm "$core_rpm" \
     --hardware-rpms "$hardware_rpms" --local-blobs "$blobs" \
-    --output "$rootfs" "${account[@]}"
+    --root-mib "$root_mib" --output "$rootfs"
   ./uke-fedora-builder/build-fedora44-boot-a.sh \
     --rootfs "$rootfs" --kernel-source "$kernel_source" \
     --kernel-out "$kernel_out" --stock-boot "$stock_boot" --output "$pair"
@@ -137,21 +131,24 @@ The prepared source path must contain `boot-recipe/` and `scripts/config`.
 To build a different panel variant, pass `--touch-panel tm` to each rootfs
 invocation after confirming the tablet uses a TM panel. Graphical profiles use
 8192 MiB root images in this example; increase `--root-mib` if needed.
-The TTY profile starts a local root shell on tty1 for development.
+At first boot, tty1 prompts for a new administrator account and password; then
+the normal login or display manager starts. A keyboard connected to the tablet
+is needed for this text prompt; the root account stays locked. First-boot
+interaction has not yet been tested on Xiaomi Pad 7.
 
 Each pair contains `fedora_boot.img`, sparse `userdata.img`, checksums and a
 manifest. The boot builder verifies the fixed stock template, repacks the
 matched Image for `PARTLABEL=userdata`, and adds an unsigned AVB hash footer
 with reviewed stock boot metadata. It never flashes or selects a device slot.
 **These outputs are local build candidates, not public release assets.** The
-rootfs includes proprietary OEM files and a unit-specific touch baseline.
-Graphical images also contain the chosen account's password hash; TTY provides
-a local root shell. Keep every rootfs, pair, checksum bundle and log private.
-A public release needs a separate flow that obtains OEM data on each owner's
-machine, creates credentials on first boot, and passes build and Xiaomi Pad 7
-device checks. Replacing `userdata` destroys shared Android data. Preserve the
-Android slot B boot images and a complete data restore path before any device
-trial.
+rootfs includes proprietary OEM files without recorded redistribution
+permission and a touch baseline measured on one tablet. The baseline itself is
+not an account secret; its portability and touch behavior on other units need
+qualification. No account or password hash is embedded, and there is no root
+debug shell. Keep the images private until the OEM-data distribution path and
+Xiaomi Pad 7 device checks are resolved. Replacing `userdata` destroys shared
+Android data. Preserve the Android slot B boot images and a complete data
+restore path before any device trial.
 
 [Project status](https://github.com/MCC45TR/uke-linux) · [Architecture](docs/ARCHITECTURE.md) · [Development COPR](https://copr.fedorainfracloud.org/coprs/mcc45tr/uke-linux-test/) · [Image releases](https://github.com/MCC45TR/uke-linux-images/releases)
 

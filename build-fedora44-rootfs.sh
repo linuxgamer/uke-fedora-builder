@@ -7,21 +7,20 @@ usage() {
     cat <<'HELP'
 Usage: ./build-fedora44-rootfs.sh --profile tty|kde|gnome|phosh|plasma-mobile \
        --kernel-rpms DIR --core-rpm FILE --hardware-rpms DIR --local-blobs DIR \
-       --output DIR [--touch-panel csot|tm] [--root-mib 4096] \
-       [--user NAME --password-hash-file FILE]
+       --output DIR [--touch-panel csot|tm] [--root-mib 4096]
 
 Compose a Fedora 44 AArch64 rootfs from Fedora packages and locally built
 Linux 7.2.11 and selected hardware RPMs. Requires Docker or Podman and
 AArch64 emulation on an x86_64 host. Output includes a sparse EXT4 image,
 the package inventory and hashes. This local-only output includes proprietary
-touch firmware and a tablet-specific reference. Graphical profiles require a login user and
-a SHA-512 crypt password hash in a private file. It never writes a device.
+touch firmware and a tablet-specific reference. An account is created locally
+on tty1 at the tablet's first boot. The builder never writes a device.
 HELP
 }
 die() { printf 'fedora44-rootfs: %s\n' "$*" >&2; exit 1; }
 
 if [[ ${1:-} == --inside ]]; then
-    [[ $# == 1 && -d /workspace && -d /kernel-rpms && -d /hardware-rpms && -d /local-blobs && -f /core-rpm/uke-core-meta.rpm ]] || die 'Invalid container invocation'
+    [[ $# == 1 && -d /workspace && -d /kernel-rpms && -d /hardware-rpms && -d /local-blobs && -f /core-rpm/uke-core-meta.rpm && -f /builder/uke-create-user && -f /builder/uke-create-user.service ]] || die 'Invalid container invocation'
     root=/workspace/root
     mkdir "$root"
     dnf -y --setopt=install_weak_deps=False install \
@@ -68,13 +67,14 @@ if [[ ${1:-} == --inside ]]; then
     [[ -f /local-blobs/touch/reference.bin && ! -L /local-blobs/touch/reference.bin ]] || die 'Missing device touch reference'
     install -Dm600 /local-blobs/touch/reference.bin "$root/var/lib/uke-touch/reference.bin"
     chmod 0700 "$root/var/lib/uke-touch"
+    install -Dm755 /builder/uke-create-user "$root/usr/libexec/uke-create-user"
+    install -Dm644 /builder/uke-create-user.service "$root/usr/lib/systemd/system/uke-create-user.service"
+    "$root/usr/bin/systemctl" --root="$root" enable uke-create-user.service
     profile=$(cat /workspace/PROFILE-ID)
     case $profile in
         tty)
-            install -Dm644 /builder/uke-tty-shell.service "$root/usr/lib/systemd/system/uke-tty-shell.service"
             "$root/usr/bin/systemctl" --root="$root" set-default multi-user.target
-            "$root/usr/bin/systemctl" --root="$root" enable uke-tty-shell.service
-            "$root/usr/bin/systemctl" --root="$root" mask getty@tty1.service
+            "$root/usr/bin/systemctl" --root="$root" enable getty@tty1.service
             ;;
         kde|gnome|phosh|plasma-mobile)
             common=(NetworkManager-wifi bluez mesa-dri-drivers pipewire wireplumber
@@ -98,10 +98,6 @@ if [[ ${1:-} == --inside ]]; then
             [[ $profile != kde ]] || session=plasma
             [[ $profile != gnome ]] || session=gnome
             [[ -s $root/usr/share/wayland-sessions/$session.desktop ]] || die "Missing $profile Wayland session"
-            user=$(cat /workspace/LOGIN-USER)
-            IFS= read -r password_hash < /builder/password-hash
-            useradd --root "$root" --create-home --groups wheel --shell /bin/bash \
-                --password "$password_hash" "$user"
             "$root/usr/bin/systemctl" --root="$root" set-default graphical.target
             "$root/usr/bin/systemctl" --root="$root" enable "$display.service"
             ;;
@@ -112,6 +108,8 @@ if [[ ${1:-} == --inside ]]; then
             die "Forbidden boot or charging package in userdata image: $forbidden"
         fi
     done
+    root_password=$(awk -F: '$1=="root" {print $2}' "$root/etc/shadow")
+    [[ $root_password == '!'* || $root_password == '*'* ]] || die 'Root account is not locked'
     "$root/usr/bin/systemctl" --root="$root" enable NetworkManager.service
     printf 'PARTLABEL=userdata / ext4 defaults,noatime,x-systemd.growfs 0 1\n' > "$root/etc/fstab"
     cat /builder/uke-persist.fstab >> "$root/etc/fstab"
@@ -143,7 +141,7 @@ if [[ ${1:-} == --inside ]]; then
     (cd "$root"; tar --numeric-owner --xattrs --acls -cpf - .) | zstd -T2 -3 -o /workspace/rootfs.tar.zst
     sha256sum /workspace/rootfs.tar.zst /workspace/userdata.raw.img \
         /workspace/userdata.img /workspace/packages.tsv /workspace/PROFILE \
-        /workspace/PROFILE-ID /workspace/LOGIN-USER /workspace/ROOT-MIB \
+        /workspace/PROFILE-ID /workspace/ROOT-MIB \
         /workspace/KERNEL-RPMS.sha256 /workspace/CORE-RPM.sha256 \
         /workspace/HARDWARE-RPMS.sha256 /workspace/LOCAL-BLOBS.sha256 \
         /workspace/TOUCH-PANEL /workspace/LOCAL-ONLY.txt | \
@@ -151,12 +149,12 @@ if [[ ${1:-} == --inside ]]; then
     exit 0
 fi
 
-profile='' rpms='' core_rpm='' hardware_rpms='' blobs='' output='' panel=csot root_mib=4096 user='' password_file=''
+profile='' rpms='' core_rpm='' hardware_rpms='' blobs='' output='' panel=csot root_mib=4096
 while (($#)); do
     case $1 in
-        --profile|--kernel-rpms|--core-rpm|--hardware-rpms|--local-blobs|--touch-panel|--output|--root-mib|--user|--password-hash-file)
+        --profile|--kernel-rpms|--core-rpm|--hardware-rpms|--local-blobs|--touch-panel|--output|--root-mib)
             (($# >= 2)) || die "Missing value for $1"
-            case $1 in --profile) profile=$2;; --kernel-rpms) rpms=$2;; --core-rpm) core_rpm=$2;; --hardware-rpms) hardware_rpms=$2;; --local-blobs) blobs=$2;; --touch-panel) panel=$2;; --output) output=$2;; --root-mib) root_mib=$2;; --user) user=$2;; --password-hash-file) password_file=$2;; esac
+            case $1 in --profile) profile=$2;; --kernel-rpms) rpms=$2;; --core-rpm) core_rpm=$2;; --hardware-rpms) hardware_rpms=$2;; --local-blobs) blobs=$2;; --touch-panel) panel=$2;; --output) output=$2;; --root-mib) root_mib=$2;; esac
             shift 2;;
         --help|-h) usage; exit 0;;
         *) die "Unknown argument: $1";;
@@ -165,15 +163,6 @@ done
 case $profile in tty|kde|gnome|phosh|plasma-mobile) ;; *) die 'Unknown profile' ;; esac
 [[ -d $rpms && -f $core_rpm && -d $hardware_rpms && -d $blobs && -n $output ]] || die 'Provide --kernel-rpms, --core-rpm, --hardware-rpms, --local-blobs and --output'
 case $panel in csot|tm) ;; *) die 'Select csot or tm touch panel' ;; esac
-if [[ $profile == tty ]]; then
-    [[ -z $user && -z $password_file ]] || die 'TTY profile does not create a login account'
-else
-    [[ $user =~ ^[a-z_][a-z0-9_-]{0,30}$ && -f $password_file ]] || die 'Graphical profiles require --user and --password-hash-file'
-    [[ -z $(find "$password_file" -perm /077 -print) ]] || die 'Password hash file must not be readable by group or others'
-    IFS= read -r hash < "$password_file"
-    [[ $hash =~ ^\$6\$[A-Za-z0-9./]+\$[A-Za-z0-9./]+$ ]] || die 'Expected one SHA-512 crypt password hash'
-    unset hash
-fi
 [[ $root_mib =~ ^[1-9][0-9]*$ ]] && ((root_mib >= 4096 && root_mib <= 65536)) || die 'Root image size must be 4096..65536 MiB'
 verify="$here/../uke-linux-hardware-support/xiaomi-uke-firmware/src/verify-local-blobs.sh"
 [[ -x $verify ]] || die "Local blob verifier missing: $verify"
@@ -205,7 +194,6 @@ mkdir -p "$output"
 trap 'printf "fedora44-rootfs: incomplete output retained at %s\n" "$output" >&2' ERR
 printf 'Fedora 44 %s; Linux 7.2.11-%s; source composition only\n' "$profile" "$kernel_rpm_release" > "$output/PROFILE"
 printf '%s\n' "$profile" > "$output/PROFILE-ID"
-printf '%s\n' "$user" > "$output/LOGIN-USER"
 printf '%s\n' "$root_mib" > "$output/ROOT-MIB"
 printf '%s\n' "$panel" > "$output/TOUCH-PANEL"
 printf '%s\n' 'LOCAL ONLY: contains proprietary OEM firmware and device-specific touch reference; do not publish this image or archive.' > "$output/LOCAL-ONLY.txt"
@@ -214,10 +202,6 @@ sha256sum "$rpms"/senemos-uke-linux-kernel-mainline-{core,modules,dtbs}-7.2.11-"
 printf '%s  %s\n' "$(sha256sum "$core_rpm" | cut -d ' ' -f1)" "$(basename -- "$core_rpm")" > "$output/CORE-RPM.sha256"
 sha256sum "${hardware_files[@]}" | sed "s|$hardware_rpms/||" > "$output/HARDWARE-RPMS.sha256"
 sha256sum "$blobs/touch/$panel/normal.bin" "$blobs/touch/$panel/config.ini" "$blobs/touch/reference.bin" | sed "s|$blobs/||" > "$output/LOCAL-BLOBS.sha256"
-password_mount=()
-if [[ $profile != tty ]]; then
-    password_mount=(-v "$(realpath -- "$password_file"):/builder/password-hash:ro")
-fi
 "$container" run --rm --platform linux/arm64 --security-opt label=disable \
     -v "$output:/workspace" -v "$rpms:/kernel-rpms:ro" \
     -v "$hardware_rpms:/hardware-rpms:ro" \
@@ -226,8 +210,8 @@ fi
     -v "$here/build-fedora44-rootfs.sh:/builder.sh:ro" \
     -v "$here/src/image/ext4-labels.cpp:/builder/ext4-labels.cpp:ro" \
     -v "$here/src/boot-pair/android-sparse.cpp:/builder/android-sparse.cpp:ro" \
-    -v "$here/configs/tty/uke-tty-shell.service:/builder/uke-tty-shell.service:ro" \
+    -v "$here/configs/firstboot/uke-create-user:/builder/uke-create-user:ro" \
+    -v "$here/configs/firstboot/uke-create-user.service:/builder/uke-create-user.service:ro" \
     -v "$here/configs/images/uke-persist.fstab:/builder/uke-persist.fstab:ro" \
-    "${password_mount[@]}" \
     registry.fedoraproject.org/fedora:44 bash /builder.sh --inside
 printf 'Rootfs artifacts: %s/rootfs.tar.zst and %s/userdata.img\n' "$output" "$output"
