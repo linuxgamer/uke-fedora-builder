@@ -14,8 +14,8 @@ physical `userdata` partition. Phosh and Plasma Mobile are experimental.
 
 From the workspace root, the short path builds the RPMs selected by this image
 recipe and the five
-separate image pairs. It verifies the bundled OS3.0.303.0 touch, SSC and
-Bluetooth inputs automatically. A hash-pinned compressed stock `boot.img`
+separate image pairs. It verifies the bundled OS3.0.303.0 touch, SSC,
+Bluetooth, WPSS, ADSP, WLAN board and GPU inputs automatically. A hash-pinned compressed stock `boot.img`
 template is also bundled and unpacked temporarily; `--stock-boot FILE` can
 select a separately held matching copy. Docker or Podman with AArch64 support
 is required.
@@ -106,17 +106,20 @@ not publish or flash anything. Eight selected hardware/data packages enter the r
 the `uke-boot-integration` and kernel boot/update RPMs target the upstream slot
 layout and are excluded.
 
-The firmware component now contains the verified OEM touch, SSC and Bluetooth
+The firmware component now contains the verified OEM touch, SSC, Bluetooth,
+WPSS, ADSP, WLAN board and GPU
 inputs in `payload/oem-os3.0.303.0/`; no private archive extraction is needed.
-`xiaomi-uke-firmware/src/verify-local-blobs.sh` checks their pinned hashes.
+`xiaomi-uke-firmware/src/verify-local-blobs.sh` and
+`src/verify-fedora44-firmware.sh` check their pinned hashes.
 The default panel is CSOT; pass `--touch-panel tm` only for a TM panel. The
 reference baseline was measured on one unit; it is not a secret credential,
 but its behavior on other panels has not been qualified. SSC configuration and
 Bluetooth firmware are installed from the bundled, hash-pinned OEM set. SSC
 starts when `/dev/fastrpc-adsp` appears; the Bluetooth address helper reads
-the tablet's own read-only `persist` data. Neither feature has been tested on
-the new image. The separately pinned WPSS, ADSP and GPU firmware set is still
-absent; Wi-Fi, DSP and accelerated graphics are not qualified by this image recipe.
+the tablet's own read-only `persist` data. The package also installs the
+matching WPSS, ADSP, WLAN board and Adreno files from OS3.0.303.0. These
+paths satisfy the source-level firmware requests; SSC, Wi-Fi, DSP and GPU
+operation on the new image still need tablet tests.
 
 After the RPMs exist, run the next block in **Bash on the host** from the
 workspace root. It creates five separate rootfs and boot pairs using the same
@@ -145,7 +148,7 @@ cp "$workspace"/uke-linux-hardware-support/uke-desktop-integration/build/bluetoo
 cp "$workspace"/uke-linux-hardware-support/uke-sensors/build/srpm/libssc/rpmbuild/RPMS/aarch64/libssc-0.4.4-*.fc44.aarch64.rpm "$hardware_rpms/"
 cp "$workspace"/uke-linux-hardware-support/uke-sensors/build/srpm/iio-sensor-proxy/rpmbuild/RPMS/aarch64/iio-sensor-proxy-3.9-*.fc44.aarch64.rpm "$hardware_rpms/"
 cp "$workspace"/uke-linux-hardware-support/uke-sensors/build/srpm/uke-ssc-fileservice/rpmbuild/RPMS/aarch64/uke-ssc-fileservice-2026.09.21-*.fc44.aarch64.rpm "$hardware_rpms/"
-cp "$workspace"/uke-linux-hardware-support/xiaomi-uke-firmware/build/fedora44-image-data/rpmbuild/RPMS/noarch/uke-fedora44-oem-data-3.0.303.0-*.fc44.noarch.rpm "$hardware_rpms/"
+cp "$workspace"/uke-linux-hardware-support/xiaomi-uke-firmware/build/fedora44-image-data/rpmbuild/RPMS/noarch/uke-fedora44-oem-data-3.0.303.0-2.fc44.noarch.rpm "$hardware_rpms/"
 stock_boot=$workspace/private/uke_global_images_OS3.0.303.0.WOZMIXM_16.0/images/boot.img
 
 for profile in tty kde gnome phosh plasma-mobile; do
@@ -181,7 +184,8 @@ matched Image for `PARTLABEL=userdata`, and adds an unsigned AVB hash footer
 with reviewed stock boot metadata. It never flashes or selects a device slot.
 The same rootfs and boot-pair recipes produce local images and release
 candidates; no separate blob-free variant is built. Each rootfs includes the
-selected OEM touch firmware, SSC configuration, Bluetooth firmware and a touch
+selected OEM touch firmware, SSC configuration, Bluetooth, WPSS, ADSP, WLAN
+board and GPU firmware and a touch
 baseline measured on one tablet. The
 baseline is not an account secret, but its behavior on other units needs
 qualification. No account or password hash is embedded, and there is no root

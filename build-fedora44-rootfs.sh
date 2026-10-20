@@ -52,7 +52,7 @@ if [[ ${1:-} == --inside ]]; then
         /hardware-rpms/libssc-0.4.4-*.fc44.aarch64.rpm \
         /hardware-rpms/iio-sensor-proxy-3.9-*.fc44.aarch64.rpm \
         /hardware-rpms/uke-ssc-fileservice-2026.09.21-*.fc44.aarch64.rpm \
-        /hardware-rpms/uke-fedora44-oem-data-3.0.303.0-*.fc44.noarch.rpm
+        /hardware-rpms/uke-fedora44-oem-data-3.0.303.0-2.fc44.noarch.rpm
     rpm --root "$root" -q --qf '%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n' \
         uke-touchscreen uke-battery-observer uke-wifi-factory uke-bluetooth | \
         awk '($1 == "uke-touchscreen" && $3 ~ /^([8-9]|[1-9][0-9]+)\.fc44$/) ||
@@ -66,7 +66,7 @@ if [[ ${1:-} == --inside ]]; then
         awk '($1 == "libssc" && $2 == "0.4.4" && $3 ~ /^[1-9][0-9]*\.fc44$/ && $4 == "aarch64") ||
              ($1 == "iio-sensor-proxy" && $2 == "3.9" && $3 ~ /^[1-9][0-9]*\.fc44$/ && $4 == "aarch64") ||
              ($1 == "uke-ssc-fileservice" && $2 == "2026.09.21" && $3 ~ /^[1-9][0-9]*\.fc44$/ && $4 == "aarch64") ||
-             ($1 == "uke-fedora44-oem-data" && $2 == "3.0.303.0" && $3 ~ /^[1-9][0-9]*\.fc44$/ && $4 == "noarch") { good++ }
+             ($1 == "uke-fedora44-oem-data" && $2 == "3.0.303.0" && $3 == "2.fc44" && $4 == "noarch") { good++ }
              END { exit good != 4 || NR != 4 }' || die 'Expected Fedora 44 SSC and OEM data RPMs'
     "$root/usr/bin/systemctl" --root="$root" enable uke-touchscreen.service uke-battery.service uke-wifi-factory.service uke-bluetooth-address.service
     install -Dm644 /builder/uke-ssc-fedora44.target "$root/usr/lib/systemd/system/uke-ssc-fedora44.target"
@@ -204,12 +204,14 @@ for package in uke-touchscreen uke-battery-observer uke-wifi-factory uke-bluetoo
     hardware_files+=("${matches[0]}")
 done
 for entry in 'libssc:0.4.4:aarch64' 'iio-sensor-proxy:3.9:aarch64' \
-             'uke-ssc-fileservice:2026.09.21:aarch64' 'uke-fedora44-oem-data:3.0.303.0:noarch'; do
+             'uke-ssc-fileservice:2026.09.21:aarch64'; do
     IFS=: read -r package version arch <<< "$entry"
     mapfile -t matches < <(find "$hardware_rpms" -maxdepth 1 -type f -name "$package-$version-*.fc44.$arch.rpm" -print)
     ((${#matches[@]} == 1)) || die "Expected one Fedora 44 $package RPM in $hardware_rpms"
     hardware_files+=("${matches[0]}")
 done
+[[ -f $hardware_rpms/uke-fedora44-oem-data-3.0.303.0-2.fc44.noarch.rpm ]] || die 'Expected Fedora 44 OEM data RPM release 2'
+hardware_files+=("$hardware_rpms/uke-fedora44-oem-data-3.0.303.0-2.fc44.noarch.rpm")
 [[ ! -e $output ]] || die 'Output path already exists; select a new directory'
 mkdir -p "$output"
 trap 'printf "fedora44-rootfs: incomplete output retained at %s\n" "$output" >&2' ERR
