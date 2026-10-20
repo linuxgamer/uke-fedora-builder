@@ -23,9 +23,9 @@ if [[ ${1:-} == --inside ]]; then
     [[ $# == 1 && -d /workspace && -d /kernel-rpms && -d /hardware-rpms && -d /local-blobs && -f /core-rpm/uke-core-meta.rpm && -f /builder/uke-create-user && -f /builder/uke-create-user.service ]] || die 'Invalid container invocation'
     root=/workspace/root
     mkdir "$root"
-    dnf -y --setopt=install_weak_deps=False install \
+    dnf -y --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True --setopt=install_weak_deps=False install \
         tar zstd gcc-c++ e2fsprogs e2fsprogs-devel libselinux-devel
-    dnf -y --installroot="$root" --releasever=44 \
+    dnf -y --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True --installroot="$root" --releasever=44 \
         --setopt=install_weak_deps=False --setopt=localpkg_gpgcheck=False install \
         fedora-release basesystem bash coreutils systemd systemd-udev \
         NetworkManager dnf5 sudo shadow-utils util-linux kmod python3 \
@@ -43,7 +43,7 @@ if [[ ${1:-} == --inside ]]; then
     kernel_release=$(rpm --root "$root" -q --qf '%{VERSION}-%{RELEASE}\n' senemos-uke-linux-kernel-mainline-core)
     [[ -d $root/usr/lib/modules/${kernel_release%.fc44} ]] || die 'Kernel module directory is absent'
     [[ $(rpm --root "$root" -q --qf '%{VERSION} %{RELEASE} %{ARCH}' uke-core-meta) == '1.0.0 5.fc44 aarch64' ]] || die 'Expected Fedora 44 Uke Core RPM'
-    dnf -y --installroot="$root" --releasever=44 \
+    dnf -y --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True --installroot="$root" --releasever=44 \
         --setopt=install_weak_deps=False --setopt=localpkg_gpgcheck=False install \
         /hardware-rpms/uke-touchscreen-0.1.0-*.fc44.aarch64.rpm \
         /hardware-rpms/uke-battery-observer-0.1.0-*.fc44.aarch64.rpm \
@@ -105,7 +105,7 @@ if [[ ${1:-} == --inside ]]; then
                                          plasma-settings plasma-nm plasma-keyboard
                                          plasma-pa powerdevil); display=sddm ;;
             esac
-            dnf -y --installroot="$root" --releasever=44 \
+            dnf -y --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True --installroot="$root" --releasever=44 \
                 --setopt=install_weak_deps=False install "${common[@]}" "${desktop[@]}"
             session=$profile
             [[ $profile != kde ]] || session=plasma
@@ -214,6 +214,8 @@ done
 hardware_files+=("$hardware_rpms/uke-fedora44-oem-data-3.0.303.0-2.fc44.noarch.rpm")
 [[ ! -e $output ]] || die 'Output path already exists; select a new directory'
 mkdir -p "$output"
+cache_dir=$here/build/cache
+mkdir -p "$cache_dir/dnf"
 trap 'printf "fedora44-rootfs: incomplete output retained at %s\n" "$output" >&2' ERR
 printf 'Fedora 44 %s; Linux 7.2.11-%s; source composition only\n' "$profile" "$kernel_rpm_release" > "$output/PROFILE"
 printf '%s\n' "$profile" > "$output/PROFILE-ID"
@@ -225,6 +227,7 @@ printf '%s  %s\n' "$(sha256sum "$core_rpm" | cut -d ' ' -f1)" "$(basename -- "$c
 sha256sum "${hardware_files[@]}" | sed "s|$hardware_rpms/||" > "$output/HARDWARE-RPMS.sha256"
 sha256sum "$blobs/touch/$panel/normal.bin" "$blobs/touch/$panel/config.ini" "$blobs/touch/reference.bin" | sed "s|$blobs/||" > "$output/LOCAL-BLOBS.sha256"
 "$container" run --rm --network=host --platform linux/arm64 --security-opt label=disable \
+    -v "$cache_dir:/build-cache" \
     -v "$output:/workspace" -v "$rpms:/kernel-rpms:ro" \
     -v "$hardware_rpms:/hardware-rpms:ro" \
     -v "$blobs:/local-blobs:ro" \

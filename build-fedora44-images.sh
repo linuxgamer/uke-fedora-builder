@@ -7,15 +7,18 @@ workspace=$(cd -- "$here/.." && pwd)
 stock=''
 stock_archive=$here/payload/uke-os3.0.303.0-boot.zst
 output=$workspace/build/fedora44-images
+rebuild_kernel=0
 
 usage() {
     cat <<'HELP'
 Usage: ./uke-fedora-builder/build-fedora44-images.sh [--stock-boot FILE] [--output NEW_DIR]
+       [--rebuild-kernel]
 
 Build Linux 7.2.11 and Fedora 44 RPMs, then make separate TTY, KDE, GNOME,
 Phosh and Plasma Mobile boot_a/userdata pairs. Bundled OEM inputs, including
 the reviewed stock boot template, are verified automatically. The script does
-not flash or select a device slot.
+not flash or select a device slot. A matching previous kernel RPM build is
+reused unless --rebuild-kernel is given.
 HELP
 }
 die() { printf 'fedora44-images: %s\n' "$*" >&2; exit 1; }
@@ -27,6 +30,7 @@ while (($#)); do
             case $1 in --stock-boot) stock=$2;; --output) output=$2;; esac
             shift 2;;
         -h|--help) usage; exit 0;;
+        --rebuild-kernel) rebuild_kernel=1; shift;;
         *) die "Unknown argument: $1";;
     esac
 done
@@ -50,14 +54,19 @@ if [[ -z $stock ]]; then
 fi
 [[ -f $stock && ! -L $stock ]] || die 'Stock boot.img is missing'
 [[ $(sha256sum "$stock" | cut -d' ' -f1) == efdee1d4e1acd7f6e77615330dbcb045caeeccad8568d89fa6abd627f606e77f ]] || die 'Unexpected stock boot.img'
+cache_dir=$here/build/cache
+mkdir -p "$cache_dir/dnf" "$cache_dir/ccache"
 
 # bash -s reads the build recipe from stdin; keep stdin attached to the container.
 "$container" run --rm -i --network=host --platform linux/arm64 --security-opt label=disable \
+    -e UKE_REBUILD_KERNEL="$rebuild_kernel" -v "$cache_dir:/build-cache" \
     -v "$workspace:/work" -w /work registry.fedoraproject.org/fedora:44 \
     bash -s <<'BUILD_RPMS'
 set -Eeuo pipefail
-dnf5 -y install rpm-build dnf5-plugins make git-core jq curl gnupg2 xz tar patch \
-  gzip coreutils findutils diffutils
+dnf=(dnf5 -y --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True)
+"${dnf[@]}" install rpm-build dnf5-plugins make git-core jq curl gnupg2 xz tar patch \
+  gzip coreutils findutils diffutils ccache
+export UKE_CCACHE=1 CCACHE_DIR=/build-cache/ccache CCACHE_MAXSIZE=10G
 git config --global --add safe.directory /work/senemos-uke-kernel
 make -C senemos-uke-kernel srpm
 make -C uke-linux-hardware-support/uke-core-meta srpm
@@ -80,17 +89,28 @@ tops=(
 for top in "${tops[@]}"; do
     specs=("$top"/SPECS/*.spec)
     ((${#specs[@]} == 1)) || { printf 'Expected one spec in %s\n' "$top" >&2; exit 1; }
-    dnf5 -y builddep "${specs[0]}"
+    if [[ $top == senemos-uke-kernel/build/srpm/rpmbuild && $UKE_REBUILD_KERNEL == 0 ]] && \
+       bash uke-fedora-builder/src/image/kernel-rpm-cache.sh check "$top"; then
+        printf 'Reusing verified Linux 7.2.11 RPMs and boot build\n'
+        continue
+    fi
+    if [[ $top == senemos-uke-kernel/build/srpm/rpmbuild ]]; then
+        rm -f -- "$top/.fedora44-kernel-cache/SOURCE-SHA256"
+    fi
+    "${dnf[@]}" builddep "${specs[0]}"
     rpmbuild -ba --target aarch64 --define "_topdir /work/$top" "${specs[0]}"
+    if [[ $top == senemos-uke-kernel/build/srpm/rpmbuild ]]; then
+        bash uke-fedora-builder/src/image/kernel-rpm-cache.sh record "$top"
+    fi
 done
 sensor_root=uke-linux-hardware-support/uke-sensors/build/srpm
 for package in libssc iio-sensor-proxy uke-ssc-fileservice; do
     top=$sensor_root/$package/rpmbuild
     spec=$top/SPECS/$package.spec
-    dnf5 -y builddep "$spec"
+    "${dnf[@]}" builddep "$spec"
     rpmbuild -ba --target aarch64 --define "_topdir /work/$top" "$spec"
     if [[ $package == libssc ]]; then
-        dnf5 -y install "$top"/RPMS/aarch64/libssc-devel-0.4.4-*.fc44.aarch64.rpm
+        "${dnf[@]}" install "$top"/RPMS/aarch64/libssc-devel-0.4.4-*.fc44.aarch64.rpm
     fi
 done
 top=uke-linux-hardware-support/xiaomi-uke-firmware/build/fedora44-image-data/rpmbuild

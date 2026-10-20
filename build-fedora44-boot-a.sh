@@ -18,10 +18,10 @@ HELP
 
 if [[ ${1:-} == --inside ]]; then
     [[ $# == 1 && -d /kernel-source && -d /kernel-out && -d /workspace ]] || die 'Invalid container invocation'
-    dnf -y --setopt=install_weak_deps=False install \
+    dnf -y --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True --setopt=install_weak_deps=False install \
         bc bison clang compiler-rt cpio elfutils-libelf-devel flex gcc gcc-c++ \
         gzip llvm lld make ncurses-devel openssl-devel perl python3 rsync \
-        zstd dtc kmod findutils
+        zstd dtc kmod findutils ccache
     original=/kernel-out
     output=/workspace/kernel-out
     [[ -s $original/.config && -s $original/boot-initramfs.cpio.gz && -s $original/Module.symvers ]] || die 'Incomplete native kernel output'
@@ -62,17 +62,19 @@ if [[ ${1:-} == --inside ]]; then
         --set-str CMDLINE "$new_cmdline" \
         --set-str INITRAMFS_SOURCE /workspace/boot-initramfs.cpio.gz
     export ARCH=arm64 LLVM=1 LLVM_IAS=1 KBUILD_BUILD_USER=senemos KBUILD_BUILD_HOST=copr-builder KBUILD_BUILD_VERSION=1
+    export CCACHE_DIR=/build-cache/ccache CCACHE_MAXSIZE=10G
+    compiler_args=(CC='ccache clang' HOSTCC='ccache gcc' HOSTCXX='ccache g++')
     export SOURCE_DATE_EPOCH=1791725270
     KBUILD_BUILD_TIMESTAMP=$(date -u -d "@$SOURCE_DATE_EPOCH" '+%Y-%m-%d %H:%M:%S UTC')
     export KBUILD_BUILD_TIMESTAMP
     localversion=-${release#*-}
-    make -C /kernel-source O="$output" LOCALVERSION="$localversion" olddefconfig
-    [[ $(make -s -C /kernel-source O="$output" LOCALVERSION="$localversion" kernelrelease) == "$release" ]] || die 'Kernel release changed'
+    make -C /kernel-source O="$output" LOCALVERSION="$localversion" "${compiler_args[@]}" olddefconfig
+    [[ $(make -s -C /kernel-source O="$output" LOCALVERSION="$localversion" "${compiler_args[@]}" kernelrelease) == "$release" ]] || die 'Kernel release changed'
     grep -Fx 'CONFIG_INITRAMFS_FORCE=y' "$output/.config" >/dev/null
     grep -Fx 'CONFIG_CMDLINE_FORCE=y' "$output/.config" >/dev/null
     grep -Fx "CONFIG_CMDLINE=\"$new_cmdline\"" "$output/.config" >/dev/null
     jobs=$(cat /workspace/JOBS)
-    make -C /kernel-source O="$output" LOCALVERSION="$localversion" -j"$jobs" Image
+    make -C /kernel-source O="$output" LOCALVERSION="$localversion" "${compiler_args[@]}" -j"$jobs" Image
     cmp "$original/Module.symvers" "$output/Module.symvers" || die 'Kernel module export ABI changed'
     install -m644 "$output/arch/arm64/boot/Image" /workspace/Image
     install -m644 "$output/.config" /workspace/boot.config
@@ -129,11 +131,14 @@ for command in avbtool g++ jq sha256sum; do
     command -v "$command" >/dev/null || die "Missing host command: $command"
 done
 mkdir -p "$output"
+cache_dir=$here/build/cache
+mkdir -p "$cache_dir/dnf" "$cache_dir/ccache"
 trap 'printf "fedora44-boot-a: incomplete output retained at %s\n" "$output" >&2' ERR
 printf '%s\n' "$release" > "$output/KERNEL-RELEASE"
 printf '%s\n' "$jobs" > "$output/JOBS"
 "$container" run --rm --network=host --platform linux/arm64 --security-opt label=disable \
     -v "$source:/kernel-source:ro" -v "$kernel_out:/kernel-out:ro" -v "$output:/workspace" \
+    -v "$cache_dir:/build-cache" \
     -v "$here/build-fedora44-boot-a.sh:/builder.sh:ro" \
     registry.fedoraproject.org/fedora:44 bash /builder.sh --inside
 g++ -std=c++20 -O2 -Wall -Wextra -Werror "$here/src/boot/boot-image.cpp" -o "$output/boot-image"
