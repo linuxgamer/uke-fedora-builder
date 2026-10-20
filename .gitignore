@@ -2,8 +2,7 @@
 !/referances/README.md
 /build/
 /artifacts/
-/reports/private/
-/reports/*.log
+/reports/*
 /src/upstream/
 .env
 .env.*
