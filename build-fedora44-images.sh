@@ -52,7 +52,7 @@ fi
 [[ $(sha256sum "$stock" | cut -d' ' -f1) == efdee1d4e1acd7f6e77615330dbcb045caeeccad8568d89fa6abd627f606e77f ]] || die 'Unexpected stock boot.img'
 
 # bash -s reads the build recipe from stdin; keep stdin attached to the container.
-"$container" run --rm -i --platform linux/arm64 --security-opt label=disable \
+"$container" run --rm -i --network=host --platform linux/arm64 --security-opt label=disable \
     -v "$workspace:/work" -w /work registry.fedoraproject.org/fedora:44 \
     bash -s <<'BUILD_RPMS'
 set -Eeuo pipefail

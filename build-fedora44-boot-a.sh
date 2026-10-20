@@ -132,7 +132,7 @@ mkdir -p "$output"
 trap 'printf "fedora44-boot-a: incomplete output retained at %s\n" "$output" >&2' ERR
 printf '%s\n' "$release" > "$output/KERNEL-RELEASE"
 printf '%s\n' "$jobs" > "$output/JOBS"
-"$container" run --rm --platform linux/arm64 --security-opt label=disable \
+"$container" run --rm --network=host --platform linux/arm64 --security-opt label=disable \
     -v "$source:/kernel-source:ro" -v "$kernel_out:/kernel-out:ro" -v "$output:/workspace" \
     -v "$here/build-fedora44-boot-a.sh:/builder.sh:ro" \
     registry.fedoraproject.org/fedora:44 bash /builder.sh --inside

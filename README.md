@@ -18,7 +18,8 @@ separate image pairs. It verifies the bundled OS3.0.303.0 touch, SSC,
 Bluetooth, WPSS, ADSP, WLAN board and GPU inputs automatically. A hash-pinned compressed stock `boot.img`
 template is also bundled and unpacked temporarily; `--stock-boot FILE` can
 select a separately held matching copy. Docker or Podman with AArch64 support
-is required.
+is required. The recipe uses host networking for Fedora repository access,
+including on Docker hosts without a bridge network.
 
 ```bash
 ./uke-fedora-builder/build-fedora44-images.sh
@@ -44,7 +45,7 @@ On an x86_64 host with Docker and AArch64 emulation, enter the Fedora 44 build
 environment from the workspace root:
 
 ```bash
-docker run --rm -it --platform linux/arm64 \
+docker run --rm -it --network=host --platform linux/arm64 \
   --security-opt label=disable -v "$PWD:/work" -w /work \
   registry.fedoraproject.org/fedora:44 bash
 ```
