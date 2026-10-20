@@ -6,20 +6,22 @@ here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 usage() {
     cat <<'HELP'
 Usage: ./build-fedora44-rootfs.sh --profile tty|kde|gnome|phosh|plasma-mobile \
-       --kernel-rpms DIR --core-rpm FILE --hardware-rpms DIR --output DIR [--root-mib 4096] \
+       --kernel-rpms DIR --core-rpm FILE --hardware-rpms DIR --local-blobs DIR \
+       --output DIR [--touch-panel csot|tm] [--root-mib 4096] \
        [--user NAME --password-hash-file FILE]
 
 Compose a Fedora 44 AArch64 rootfs from Fedora packages and locally built
 Linux 7.2.11 and selected hardware RPMs. Requires Docker or Podman and
 AArch64 emulation on an x86_64 host. Output includes a sparse EXT4 image,
-the package inventory and hashes. Graphical profiles require a login user and
+the package inventory and hashes. This local-only output includes proprietary
+touch firmware and a tablet-specific reference. Graphical profiles require a login user and
 a SHA-512 crypt password hash in a private file. It never writes a device.
 HELP
 }
 die() { printf 'fedora44-rootfs: %s\n' "$*" >&2; exit 1; }
 
 if [[ ${1:-} == --inside ]]; then
-    [[ $# == 1 && -d /workspace && -d /kernel-rpms && -d /hardware-rpms && -f /core-rpm/uke-core-meta.rpm ]] || die 'Invalid container invocation'
+    [[ $# == 1 && -d /workspace && -d /kernel-rpms && -d /hardware-rpms && -d /local-blobs && -f /core-rpm/uke-core-meta.rpm ]] || die 'Invalid container invocation'
     root=/workspace/root
     mkdir "$root"
     dnf -y --setopt=install_weak_deps=False install \
@@ -57,6 +59,15 @@ if [[ ${1:-} == --inside ]]; then
                 if ($2 == "0.1.0" && $4 == "aarch64") good++
              } END { exit good != 4 || NR != 4 }' || die 'Expected four selected Fedora 44 hardware RPMs'
     "$root/usr/bin/systemctl" --root="$root" enable uke-touchscreen.service uke-battery.service uke-wifi-factory.service uke-bluetooth-address.service
+    panel=$(cat /workspace/TOUCH-PANEL)
+    case $panel in csot|tm) ;; *) die 'Invalid touch panel selection' ;; esac
+    for name in normal.bin config.ini; do
+        [[ -f /local-blobs/touch/$panel/$name && ! -L /local-blobs/touch/$panel/$name ]] || die "Missing selected touch input: $name"
+        install -Dm600 "/local-blobs/touch/$panel/$name" "$root/var/lib/uke-touch/$name"
+    done
+    [[ -f /local-blobs/touch/reference.bin && ! -L /local-blobs/touch/reference.bin ]] || die 'Missing device touch reference'
+    install -Dm600 /local-blobs/touch/reference.bin "$root/var/lib/uke-touch/reference.bin"
+    chmod 0700 "$root/var/lib/uke-touch"
     profile=$(cat /workspace/PROFILE-ID)
     case $profile in
         tty)
@@ -134,24 +145,26 @@ if [[ ${1:-} == --inside ]]; then
         /workspace/userdata.img /workspace/packages.tsv /workspace/PROFILE \
         /workspace/PROFILE-ID /workspace/LOGIN-USER /workspace/ROOT-MIB \
         /workspace/KERNEL-RPMS.sha256 /workspace/CORE-RPM.sha256 \
-        /workspace/HARDWARE-RPMS.sha256 | \
+        /workspace/HARDWARE-RPMS.sha256 /workspace/LOCAL-BLOBS.sha256 \
+        /workspace/TOUCH-PANEL /workspace/LOCAL-ONLY.txt | \
         sed 's|/workspace/||' > /workspace/SHA256SUMS
     exit 0
 fi
 
-profile='' rpms='' core_rpm='' hardware_rpms='' output='' root_mib=4096 user='' password_file=''
+profile='' rpms='' core_rpm='' hardware_rpms='' blobs='' output='' panel=csot root_mib=4096 user='' password_file=''
 while (($#)); do
     case $1 in
-        --profile|--kernel-rpms|--core-rpm|--hardware-rpms|--output|--root-mib|--user|--password-hash-file)
+        --profile|--kernel-rpms|--core-rpm|--hardware-rpms|--local-blobs|--touch-panel|--output|--root-mib|--user|--password-hash-file)
             (($# >= 2)) || die "Missing value for $1"
-            case $1 in --profile) profile=$2;; --kernel-rpms) rpms=$2;; --core-rpm) core_rpm=$2;; --hardware-rpms) hardware_rpms=$2;; --output) output=$2;; --root-mib) root_mib=$2;; --user) user=$2;; --password-hash-file) password_file=$2;; esac
+            case $1 in --profile) profile=$2;; --kernel-rpms) rpms=$2;; --core-rpm) core_rpm=$2;; --hardware-rpms) hardware_rpms=$2;; --local-blobs) blobs=$2;; --touch-panel) panel=$2;; --output) output=$2;; --root-mib) root_mib=$2;; --user) user=$2;; --password-hash-file) password_file=$2;; esac
             shift 2;;
         --help|-h) usage; exit 0;;
         *) die "Unknown argument: $1";;
     esac
 done
 case $profile in tty|kde|gnome|phosh|plasma-mobile) ;; *) die 'Unknown profile' ;; esac
-[[ -d $rpms && -f $core_rpm && -d $hardware_rpms && -n $output ]] || die 'Provide --kernel-rpms, --core-rpm, --hardware-rpms and --output'
+[[ -d $rpms && -f $core_rpm && -d $hardware_rpms && -d $blobs && -n $output ]] || die 'Provide --kernel-rpms, --core-rpm, --hardware-rpms, --local-blobs and --output'
+case $panel in csot|tm) ;; *) die 'Select csot or tm touch panel' ;; esac
 if [[ $profile == tty ]]; then
     [[ -z $user && -z $password_file ]] || die 'TTY profile does not create a login account'
 else
@@ -162,17 +175,16 @@ else
     unset hash
 fi
 [[ $root_mib =~ ^[1-9][0-9]*$ ]] && ((root_mib >= 4096 && root_mib <= 65536)) || die 'Root image size must be 4096..65536 MiB'
-if [[ ${UKE_SKIP_LOCAL_BLOBS_CHECK:-0} != 1 ]]; then
-    verify="$here/../uke-linux-hardware-support/xiaomi-uke-firmware/src/verify-local-blobs.sh"
-    [[ -x $verify ]] || die "Local blob verifier missing: $verify"
-    "$verify" || die 'Local OEM blobs are incomplete; see uke-linux-hardware-support/xiaomi-uke-firmware/docs/LOCAL-BLOBS.md'
-fi
+verify="$here/../uke-linux-hardware-support/xiaomi-uke-firmware/src/verify-local-blobs.sh"
+[[ -x $verify ]] || die "Local blob verifier missing: $verify"
+"$verify" --root "$blobs" || die 'Local OEM blobs are incomplete; see uke-linux-hardware-support/xiaomi-uke-firmware/docs/LOCAL-BLOBS.md'
 if command -v podman >/dev/null; then container=podman
 elif command -v docker >/dev/null; then container=docker
 else die 'Docker or Podman is required; host packages are not installed automatically'; fi
 rpms=$(realpath -- "$rpms")
 core_rpm=$(realpath -- "$core_rpm")
 hardware_rpms=$(realpath -- "$hardware_rpms")
+blobs=$(realpath -- "$blobs")
 output=$(realpath -m -- "$output")
 for part in core modules dtbs; do
     mapfile -t matches < <(find "$rpms" -maxdepth 1 -type f -name "senemos-uke-linux-kernel-mainline-$part-7.2.11-*.fc44.aarch64.rpm" -print)
@@ -195,10 +207,13 @@ printf 'Fedora 44 %s; Linux 7.2.11-%s; source composition only\n' "$profile" "$k
 printf '%s\n' "$profile" > "$output/PROFILE-ID"
 printf '%s\n' "$user" > "$output/LOGIN-USER"
 printf '%s\n' "$root_mib" > "$output/ROOT-MIB"
+printf '%s\n' "$panel" > "$output/TOUCH-PANEL"
+printf '%s\n' 'LOCAL ONLY: contains proprietary OEM firmware and device-specific touch reference; do not publish this image or archive.' > "$output/LOCAL-ONLY.txt"
 sha256sum "$rpms"/senemos-uke-linux-kernel-mainline-{core,modules,dtbs}-7.2.11-"$kernel_rpm_release".fc44.aarch64.rpm | \
     sed "s|$rpms/||" > "$output/KERNEL-RPMS.sha256"
 printf '%s  %s\n' "$(sha256sum "$core_rpm" | cut -d ' ' -f1)" "$(basename -- "$core_rpm")" > "$output/CORE-RPM.sha256"
 sha256sum "${hardware_files[@]}" | sed "s|$hardware_rpms/||" > "$output/HARDWARE-RPMS.sha256"
+sha256sum "$blobs/touch/$panel/normal.bin" "$blobs/touch/$panel/config.ini" "$blobs/touch/reference.bin" | sed "s|$blobs/||" > "$output/LOCAL-BLOBS.sha256"
 password_mount=()
 if [[ $profile != tty ]]; then
     password_mount=(-v "$(realpath -- "$password_file"):/builder/password-hash:ro")
@@ -206,6 +221,7 @@ fi
 "$container" run --rm --platform linux/arm64 --security-opt label=disable \
     -v "$output:/workspace" -v "$rpms:/kernel-rpms:ro" \
     -v "$hardware_rpms:/hardware-rpms:ro" \
+    -v "$blobs:/local-blobs:ro" \
     -v "$core_rpm:/core-rpm/uke-core-meta.rpm:ro" \
     -v "$here/build-fedora44-rootfs.sh:/builder.sh:ro" \
     -v "$here/src/image/ext4-labels.cpp:/builder/ext4-labels.cpp:ro" \
