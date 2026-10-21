@@ -25,7 +25,7 @@ if [[ ${1:-} == --inside ]]; then
     mkdir "$root"
     dnf -y --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True --setopt=install_weak_deps=False install \
         tar zstd gcc-c++ e2fsprogs e2fsprogs-devel libselinux-devel
-    dnf -y --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True --installroot="$root" --releasever=44 \
+    dnf -y --use-host-config --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True --installroot="$root" --releasever=44 \
         --setopt=install_weak_deps=False --setopt=localpkg_gpgcheck=False install \
         fedora-release basesystem bash coreutils systemd systemd-udev \
         NetworkManager dnf5 sudo shadow-utils util-linux kmod python3 \
@@ -43,7 +43,7 @@ if [[ ${1:-} == --inside ]]; then
     kernel_release=$(rpm --root "$root" -q --qf '%{VERSION}-%{RELEASE}\n' senemos-uke-linux-kernel-mainline-core)
     [[ -d $root/usr/lib/modules/${kernel_release%.fc44} ]] || die 'Kernel module directory is absent'
     [[ $(rpm --root "$root" -q --qf '%{VERSION} %{RELEASE} %{ARCH}' uke-core-meta) == '1.0.0 5.fc44 aarch64' ]] || die 'Expected Fedora 44 Uke Core RPM'
-    dnf -y --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True --installroot="$root" --releasever=44 \
+    dnf -y --use-host-config --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True --installroot="$root" --releasever=44 \
         --setopt=install_weak_deps=False --setopt=localpkg_gpgcheck=False install \
         /hardware-rpms/uke-touchscreen-0.1.0-*.fc44.aarch64.rpm \
         /hardware-rpms/uke-battery-observer-0.1.0-*.fc44.aarch64.rpm \
@@ -105,7 +105,7 @@ if [[ ${1:-} == --inside ]]; then
                                          plasma-settings plasma-nm plasma-keyboard
                                          plasma-pa powerdevil); display=sddm ;;
             esac
-            dnf -y --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True --installroot="$root" --releasever=44 \
+            dnf -y --use-host-config --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True --installroot="$root" --releasever=44 \
                 --setopt=install_weak_deps=False install "${common[@]}" "${desktop[@]}"
             session=$profile
             [[ $profile != kde ]] || session=plasma
