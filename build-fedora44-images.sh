@@ -89,13 +89,13 @@ tops=(
   senemos-uke-kernel/build/srpm/rpmbuild
   uke-linux-hardware-support/uke-core-meta/build/srpm/rpmbuild
   uke-linux-hardware-support/uke-sensors/build/rpmbuild
-  uke-linux-hardware-support/uke-platform-runtime/build/srpm/rpmbuild
+  uke-linux-hardware-support/uke-platform-runtime/build/rpmbuild
   uke-linux-hardware-support/uke-boot/build/srpm/rpmbuild
   uke-linux-hardware-support/uke-desktop-integration/build/bluetooth-srpm/rpmbuild
 )
 for top in "${tops[@]}"; do
     specs=("$top"/SPECS/*.spec)
-    ((${#specs[@]} == 1)) || { printf 'Expected one spec in %s\n' "$top" >&2; exit 1; }
+    ((${#specs[@]} == 1)) && [[ -f ${specs[0]} ]] || { printf 'Expected one spec in %s\n' "$top" >&2; exit 1; }
     if [[ $top == senemos-uke-kernel/build/srpm/rpmbuild ]]; then
         rm -f -- "$top/.fedora44-cross-pending"
     fi
@@ -198,7 +198,7 @@ core_rpm=$workspace/uke-linux-hardware-support/uke-core-meta/build/srpm/rpmbuild
 hardware_rpms=$output/hardware-rpms
 mkdir "$hardware_rpms"
 cp "$workspace"/uke-linux-hardware-support/uke-sensors/build/rpmbuild/RPMS/aarch64/uke-touchscreen-0.1.0-*.fc44.aarch64.rpm "$hardware_rpms/"
-cp "$workspace"/uke-linux-hardware-support/uke-platform-runtime/build/srpm/rpmbuild/RPMS/aarch64/uke-battery-observer-0.1.0-*.fc44.aarch64.rpm "$hardware_rpms/"
+cp "$workspace"/uke-linux-hardware-support/uke-platform-runtime/build/rpmbuild/RPMS/aarch64/uke-battery-observer-0.1.0-*.fc44.aarch64.rpm "$hardware_rpms/"
 cp "$workspace"/uke-linux-hardware-support/uke-boot/build/srpm/rpmbuild/RPMS/aarch64/uke-wifi-factory-0.1.0-*.fc44.aarch64.rpm "$hardware_rpms/"
 cp "$workspace"/uke-linux-hardware-support/uke-desktop-integration/build/bluetooth-srpm/rpmbuild/RPMS/aarch64/uke-bluetooth-0.1.0-*.fc44.aarch64.rpm "$hardware_rpms/"
 cp "$workspace"/uke-linux-hardware-support/uke-sensors/build/srpm/libssc/rpmbuild/RPMS/aarch64/libssc-0.4.4-*.fc44.aarch64.rpm "$hardware_rpms/"
