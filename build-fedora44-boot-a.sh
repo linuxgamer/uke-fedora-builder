@@ -18,7 +18,12 @@ HELP
 
 if [[ ${1:-} == --inside ]]; then
     [[ $# == 1 && -d /kernel-source && -d /kernel-out && -d /workspace ]] || die 'Invalid container invocation'
-    dnf -y --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True --setopt=install_weak_deps=False install \
+    case $(cat /workspace/BUILD-PLATFORM) in
+        linux/arm64) dnf_cache=dnf; ccache_cache=ccache;;
+        linux/amd64) dnf_cache=dnf-x86_64; ccache_cache=ccache-cross;;
+        *) die 'Unknown kernel build platform';;
+    esac
+    dnf -y --setopt="system_cachedir=/build-cache/$dnf_cache" --setopt=keepcache=True --setopt=install_weak_deps=False install \
         bc bison clang compiler-rt cpio elfutils-libelf-devel flex gcc gcc-c++ \
         gzip llvm lld make ncurses-devel openssl-devel perl python3 rsync \
         zstd dtc kmod findutils ccache
@@ -62,7 +67,7 @@ if [[ ${1:-} == --inside ]]; then
         --set-str CMDLINE "$new_cmdline" \
         --set-str INITRAMFS_SOURCE /workspace/boot-initramfs.cpio.gz
     export ARCH=arm64 LLVM=1 LLVM_IAS=1 KBUILD_BUILD_USER=senemos KBUILD_BUILD_HOST=copr-builder KBUILD_BUILD_VERSION=1
-    export CCACHE_DIR=/build-cache/ccache CCACHE_MAXSIZE=10G
+    export CCACHE_DIR=/build-cache/$ccache_cache CCACHE_MAXSIZE=10G
     compiler_args=(CC='ccache clang' HOSTCC='ccache gcc' HOSTCXX='ccache g++')
     export SOURCE_DATE_EPOCH=1791725270
     KBUILD_BUILD_TIMESTAMP=$(date -u -d "@$SOURCE_DATE_EPOCH" '+%Y-%m-%d %H:%M:%S UTC')
@@ -132,11 +137,17 @@ for command in avbtool g++ jq sha256sum; do
 done
 mkdir -p "$output"
 cache_dir=$here/build/cache
-mkdir -p "$cache_dir/dnf" "$cache_dir/ccache"
+mkdir -p "$cache_dir/dnf" "$cache_dir/dnf-x86_64" "$cache_dir/ccache" "$cache_dir/ccache-cross"
+build_platform=linux/arm64
+if [[ -s $kernel_out/cross-source.sha256 ]]; then
+    (cd "$source"; sha256sum -c "$kernel_out/cross-source.sha256") || die 'Cross kernel source receipt failed'
+    build_platform=linux/amd64
+fi
 trap 'printf "fedora44-boot-a: incomplete output retained at %s\n" "$output" >&2' ERR
 printf '%s\n' "$release" > "$output/KERNEL-RELEASE"
 printf '%s\n' "$jobs" > "$output/JOBS"
-"$container" run --rm --network=host --platform linux/arm64 --security-opt label=disable \
+printf '%s\n' "$build_platform" > "$output/BUILD-PLATFORM"
+"$container" run --rm --network=host --platform "$build_platform" --security-opt label=disable \
     -v "$source:/kernel-source:ro" -v "$kernel_out:/kernel-out:ro" -v "$output:/workspace" \
     -v "$cache_dir:/build-cache" \
     -v "$here/build-fedora44-boot-a.sh:/builder.sh:ro" \
@@ -159,12 +170,14 @@ mv "$output/fedora_boot.img.part" "$output/fedora_boot.img"
 cp --reflink=auto "$rootfs/userdata.img" "$output/userdata.img"
 cp "$rootfs/PROFILE-ID" "$rootfs/TOUCH-PANEL" "$rootfs/LOCAL-BLOBS.sha256" "$output/"
 jq -n --arg profile "$(cat "$rootfs/PROFILE-ID")" --arg release "$release" \
+    --arg build_platform "$build_platform" \
     --arg panel "$(cat "$rootfs/TOUCH-PANEL")" \
     --arg boot "$(sha256sum "$output/fedora_boot.img" | cut -d ' ' -f1)" \
     --arg userdata "$(sha256sum "$output/userdata.img" | cut -d ' ' -f1)" \
     --arg stock "$stock_hash" --argjson root_bytes "$(stat -c %s "$rootfs/userdata.raw.img")" \
     --slurpfile header "$output/boot-header.json" \
     '{schema_version:1,device:"uke",distribution:"fedora",release:"44",kernel_release:$release,
+      kernel_build_platform:$build_platform,
       profile:$profile,experimental_desktop:($profile=="phosh" or $profile=="plasma-mobile"),
       touch_panel:$panel,boot_partition:"boot_a",root_partition:"userdata",
       root_image_logical_bytes:$root_bytes,stock_boot_sha256:$stock,
@@ -172,5 +185,5 @@ jq -n --arg profile "$(cat "$rootfs/PROFILE-ID")" --arg release "$release" \
       boot_tested:false,hardware_tested:false,device_write_executed:false}' > "$output/manifest.json"
 (cd "$output"; sha256sum fedora_boot.img userdata.img Image boot.config Module.symvers \
     boot-initramfs.cpio.gz stock-header.json boot-header.json manifest.json PROFILE-ID \
-    TOUCH-PANEL LOCAL-BLOBS.sha256 > SHA256SUMS)
+    TOUCH-PANEL LOCAL-BLOBS.sha256 BUILD-PLATFORM > SHA256SUMS)
 printf 'Image pair: %s/fedora_boot.img and %s/userdata.img\n' "$output" "$output"

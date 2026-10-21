@@ -8,17 +8,19 @@ stock=''
 stock_archive=$here/payload/uke-os3.0.303.0-boot.zst
 output=$workspace/build/fedora44-images
 rebuild_kernel=0
+cross_kernel=0
 
 usage() {
     cat <<'HELP'
 Usage: ./uke-fedora-builder/build-fedora44-images.sh [--stock-boot FILE] [--output NEW_DIR]
-       [--rebuild-kernel]
+       [--rebuild-kernel] [--cross-kernel]
 
 Build Linux 7.2.11 and Fedora 44 RPMs, then make separate TTY, KDE, GNOME,
 Phosh and Plasma Mobile boot_a/userdata pairs. Bundled OEM inputs, including
 the reviewed stock boot template, are verified automatically. The script does
 not flash or select a device slot. A matching previous kernel RPM build is
 reused unless --rebuild-kernel is given.
+On x86_64, --cross-kernel compiles the ARM64 kernel with native Clang.
 HELP
 }
 die() { printf 'fedora44-images: %s\n' "$*" >&2; exit 1; }
@@ -31,6 +33,7 @@ while (($#)); do
             shift 2;;
         -h|--help) usage; exit 0;;
         --rebuild-kernel) rebuild_kernel=1; shift;;
+        --cross-kernel) cross_kernel=1; shift;;
         *) die "Unknown argument: $1";;
     esac
 done
@@ -54,12 +57,16 @@ if [[ -z $stock ]]; then
 fi
 [[ -f $stock && ! -L $stock ]] || die 'Stock boot.img is missing'
 [[ $(sha256sum "$stock" | cut -d' ' -f1) == efdee1d4e1acd7f6e77615330dbcb045caeeccad8568d89fa6abd627f606e77f ]] || die 'Unexpected stock boot.img'
+if ((cross_kernel)); then
+    [[ $(uname -m) == x86_64 ]] || die '--cross-kernel requires an x86_64 host'
+fi
 cache_dir=$here/build/cache
-mkdir -p "$cache_dir/dnf" "$cache_dir/ccache"
+mkdir -p "$cache_dir/dnf" "$cache_dir/dnf-x86_64" "$cache_dir/ccache" "$cache_dir/ccache-cross"
 
 # bash -s reads the build recipe from stdin; keep stdin attached to the container.
 "$container" run --rm -i --network=host --platform linux/arm64 --security-opt label=disable \
-    -e UKE_REBUILD_KERNEL="$rebuild_kernel" -v "$cache_dir:/build-cache" \
+    -e UKE_REBUILD_KERNEL="$rebuild_kernel" -e UKE_CROSS_KERNEL="$cross_kernel" \
+    -v "$cache_dir:/build-cache" \
     -v "$workspace:/work" -w /work registry.fedoraproject.org/fedora:44 \
     bash -s <<'BUILD_RPMS'
 set -Eeuo pipefail
@@ -89,6 +96,9 @@ tops=(
 for top in "${tops[@]}"; do
     specs=("$top"/SPECS/*.spec)
     ((${#specs[@]} == 1)) || { printf 'Expected one spec in %s\n' "$top" >&2; exit 1; }
+    if [[ $top == senemos-uke-kernel/build/srpm/rpmbuild ]]; then
+        rm -f -- "$top/.fedora44-cross-pending"
+    fi
     if [[ $top == senemos-uke-kernel/build/srpm/rpmbuild && $UKE_REBUILD_KERNEL == 0 ]] && \
        bash uke-fedora-builder/src/image/kernel-rpm-cache.sh check "$top"; then
         printf 'Reusing verified Linux 7.2.11 RPMs and boot build\n'
@@ -105,6 +115,21 @@ for top in "${tops[@]}"; do
         fi
     fi
     "${dnf[@]}" builddep "${specs[0]}"
+    if [[ $top == senemos-uke-kernel/build/srpm/rpmbuild && $UKE_CROSS_KERNEL == 1 ]]; then
+        rpmbuild -bp --nodeps --target aarch64 --define "_topdir /work/$top" "${specs[0]}"
+        source=$top/BUILD/senemos-uke-linux-kernel-mainline-7.2.11-build/linux-7.2.11
+        base=$top/boot-userspace
+        bash "$source/boot-recipe/src/boot/make-initramfs-base.sh" "$base" 7.2.11-6
+        clang++ -std=c++17 -O2 -Wall -Wextra -Werror -ffile-prefix-map="$PWD"=. \
+            "$source/boot-recipe/src/boot/offline-switch-root.cpp" -o "$base/uke-offline-switch-root"
+        clang++ -std=c++20 -O2 -Wall -Wextra -Werror \
+            "$source/boot-recipe/src/boot/boot-image.cpp" -o "$base/boot-image-aarch64"
+        for binary in uke-offline-switch-root boot-image-aarch64; do
+            readelf -h "$base/$binary" | grep -E 'Machine:.*AArch64' >/dev/null
+        done
+        printf '7.2.11-6\n' > "$top/.fedora44-cross-pending"
+        continue
+    fi
     rpmbuild -ba --target aarch64 --define "_topdir /work/$top" "${specs[0]}"
     if [[ $top == senemos-uke-kernel/build/srpm/rpmbuild ]]; then
         bash uke-fedora-builder/src/image/kernel-rpm-cache.sh record "$top"
@@ -126,6 +151,42 @@ rpmbuild -ba --target noarch --define "_topdir /work/$top" \
 BUILD_RPMS
 
 kernel_top=$workspace/senemos-uke-kernel/build/srpm/rpmbuild
+if [[ -f $kernel_top/.fedora44-cross-pending ]]; then
+    "$container" run --rm -i --network=host --platform linux/amd64 --security-opt label=disable \
+        -v "$cache_dir:/build-cache" -v "$workspace:/work" -w /work \
+        registry.fedoraproject.org/fedora:44 bash -s <<'CROSS_KERNEL'
+set -Eeuo pipefail
+dnf5 -y --setopt=system_cachedir=/build-cache/dnf-x86_64 --setopt=keepcache=True install \
+    bc bison clang compiler-rt elfutils-libelf-devel flex gcc gcc-c++ gzip \
+    llvm lld make ncurses-devel openssl-devel perl python3 rsync zstd dtc \
+    kmod findutils binutils ccache cpio tar ripgrep
+top=/work/senemos-uke-kernel/build/srpm/rpmbuild
+source=$top/BUILD/senemos-uke-linux-kernel-mainline-7.2.11-build/linux-7.2.11
+[[ $(cat "$top/.fedora44-cross-pending") == 7.2.11-6 ]] || exit 2
+export UKE_CROSS_KERNEL=1 UKE_CCACHE=1 CCACHE_DIR=/build-cache/ccache-cross CCACHE_MAXSIZE=10G
+export KBUILD_BUILD_USER=senemos KBUILD_BUILD_HOST=copr-builder KBUILD_BUILD_VERSION=1
+export SOURCE_DATE_EPOCH=1791725270
+KBUILD_BUILD_TIMESTAMP=$(date -u -d "@$SOURCE_DATE_EPOCH" '+%Y-%m-%d %H:%M:%S UTC')
+export KBUILD_BUILD_TIMESTAMP
+bash "$source/boot-recipe/src/boot/build-payload.sh" "$source" \
+    "$top/native-kernel-out" "$top/boot-userspace/base" 7.2.11-6 8
+CROSS_KERNEL
+
+    "$container" run --rm -i --network=host --platform linux/arm64 --security-opt label=disable \
+        -v "$cache_dir:/build-cache" -v "$workspace:/work" -w /work \
+        registry.fedoraproject.org/fedora:44 bash -s <<'PACKAGE_KERNEL'
+set -Eeuo pipefail
+dnf=(dnf5 -y --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True)
+"${dnf[@]}" install rpm-build dnf5-plugins make
+top=/work/senemos-uke-kernel/build/srpm/rpmbuild
+spec=$top/SPECS/senemos-uke-linux-kernel-mainline.spec
+"${dnf[@]}" builddep "$spec"
+UKE_PREBUILT_KERNEL=1 rpmbuild -ba --target aarch64 --define "_topdir $top" "$spec"
+bash /work/uke-fedora-builder/src/image/kernel-rpm-cache.sh record "$top"
+rm -f -- "$top/.fedora44-cross-pending"
+PACKAGE_KERNEL
+fi
+
 [[ -d $kernel_top/BUILD ]] || die 'Kernel RPM build did not create its BUILD directory'
 kernel_rpms=$kernel_top/RPMS/aarch64
 kernel_out=$kernel_top/native-kernel-out
