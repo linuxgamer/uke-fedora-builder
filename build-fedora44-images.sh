@@ -43,6 +43,10 @@ done
 if command -v podman >/dev/null; then container=podman
 elif command -v docker >/dev/null; then container=docker
 else die 'Docker or Podman is required'; fi
+# LeakSanitizer cannot inspect ARM64 test processes under user-mode emulation.
+# Keep AddressSanitizer and UndefinedBehaviorSanitizer enabled in RPM checks.
+sanitizer_env=()
+[[ $(uname -m) == aarch64 ]] || sanitizer_env=(-e ASAN_OPTIONS=detect_leaks=0)
 for command in avbtool jq g++ sha256sum zstd; do command -v "$command" >/dev/null || die "Missing host command: $command"; done
 output=$(realpath -m -- "$output")
 [[ ! -e $output && ! -L $output ]] || die 'Output directory already exists; choose a new --output'
@@ -65,6 +69,7 @@ mkdir -p "$cache_dir/dnf" "$cache_dir/dnf-x86_64" "$cache_dir/ccache" "$cache_di
 
 # bash -s reads the build recipe from stdin; keep stdin attached to the container.
 "$container" run --rm -i --network=host --platform linux/arm64 --security-opt label=disable \
+    "${sanitizer_env[@]}" \
     -e UKE_REBUILD_KERNEL="$rebuild_kernel" -e UKE_CROSS_KERNEL="$cross_kernel" \
     -v "$cache_dir:/build-cache" \
     -v "$workspace:/work" -w /work registry.fedoraproject.org/fedora:44 \
@@ -175,6 +180,7 @@ bash "$source/boot-recipe/src/boot/build-payload.sh" "$source" \
 CROSS_KERNEL
 
     "$container" run --rm -i --network=host --platform linux/arm64 --security-opt label=disable \
+        "${sanitizer_env[@]}" \
         -v "$cache_dir:/build-cache" -v "$workspace:/work" -w /work \
         registry.fedoraproject.org/fedora:44 bash -s <<'PACKAGE_KERNEL'
 set -Eeuo pipefail
