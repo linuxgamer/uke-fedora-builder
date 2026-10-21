@@ -137,6 +137,9 @@ for top in "${tops[@]}"; do
     fi
     rpmbuild -ba --target aarch64 --define "_topdir /work/$top" "${specs[0]}"
     if [[ $top == senemos-uke-kernel/build/srpm/rpmbuild ]]; then
+        # RPM removes BUILD after -ba; restore the verified source needed by
+        # the cache receipt and the per-profile boot image builds.
+        rpmbuild -bp --nodeps --target aarch64 --define "_topdir /work/$top" "${specs[0]}"
         bash uke-fedora-builder/src/image/kernel-rpm-cache.sh record "$top"
     fi
 done
@@ -190,6 +193,7 @@ top=/work/senemos-uke-kernel/build/srpm/rpmbuild
 spec=$top/SPECS/senemos-uke-linux-kernel-mainline.spec
 "${dnf[@]}" builddep "$spec"
 UKE_PREBUILT_KERNEL=1 rpmbuild -ba --target aarch64 --define "_topdir $top" "$spec"
+rpmbuild -bp --nodeps --target aarch64 --define "_topdir $top" "$spec"
 bash /work/uke-fedora-builder/src/image/kernel-rpm-cache.sh record "$top"
 rm -f -- "$top/.fedora44-cross-pending"
 PACKAGE_KERNEL
