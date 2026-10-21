@@ -24,7 +24,7 @@ if [[ ${1:-} == --inside ]]; then
     root=/workspace/root
     mkdir "$root"
     dnf -y --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True --setopt=install_weak_deps=False install \
-        tar zstd gcc-c++ e2fsprogs e2fsprogs-devel libselinux-devel
+        tar zstd gcc-c++ e2fsprogs e2fsprogs-devel libselinux-devel systemd
     dnf -y --use-host-config --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True --installroot="$root" --releasever=44 \
         --setopt=install_weak_deps=False --setopt=localpkg_gpgcheck=False install \
         fedora-release basesystem bash coreutils systemd systemd-udev \
@@ -68,9 +68,9 @@ if [[ ${1:-} == --inside ]]; then
              ($1 == "uke-ssc-fileservice" && $2 == "2026.09.21" && $3 ~ /^[1-9][0-9]*\.fc44$/ && $4 == "aarch64") ||
              ($1 == "uke-fedora44-oem-data" && $2 == "3.0.303.0" && $3 == "2.fc44" && $4 == "noarch") { good++ }
              END { exit good != 4 || NR != 4 }' || die 'Expected Fedora 44 SSC and OEM data RPMs'
-    "$root/usr/bin/systemctl" --root="$root" enable uke-touchscreen.service uke-battery.service uke-wifi-factory.service uke-bluetooth-address.service
+    systemctl --root="$root" enable uke-touchscreen.service uke-battery.service uke-wifi-factory.service uke-bluetooth-address.service
     install -Dm644 /builder/uke-ssc-fedora44.target "$root/usr/lib/systemd/system/uke-ssc-fedora44.target"
-    "$root/usr/bin/systemctl" --root="$root" enable uke-ssc-fedora44.target
+    systemctl --root="$root" enable uke-ssc-fedora44.target
     panel=$(cat /workspace/TOUCH-PANEL)
     case $panel in csot|tm) ;; *) die 'Invalid touch panel selection' ;; esac
     for name in normal.bin config.ini; do
@@ -82,12 +82,12 @@ if [[ ${1:-} == --inside ]]; then
     chmod 0700 "$root/var/lib/uke-touch"
     install -Dm755 /builder/uke-create-user "$root/usr/libexec/uke-create-user"
     install -Dm644 /builder/uke-create-user.service "$root/usr/lib/systemd/system/uke-create-user.service"
-    "$root/usr/bin/systemctl" --root="$root" enable uke-create-user.service
+    systemctl --root="$root" enable uke-create-user.service
     profile=$(cat /workspace/PROFILE-ID)
     case $profile in
         tty)
-            "$root/usr/bin/systemctl" --root="$root" set-default multi-user.target
-            "$root/usr/bin/systemctl" --root="$root" enable getty@tty1.service
+            systemctl --root="$root" set-default multi-user.target
+            systemctl --root="$root" enable getty@tty1.service
             ;;
         kde|gnome|phosh|plasma-mobile)
             common=(NetworkManager-wifi bluez mesa-dri-drivers pipewire wireplumber
@@ -111,8 +111,8 @@ if [[ ${1:-} == --inside ]]; then
             [[ $profile != kde ]] || session=plasma
             [[ $profile != gnome ]] || session=gnome
             [[ -s $root/usr/share/wayland-sessions/$session.desktop ]] || die "Missing $profile Wayland session"
-            "$root/usr/bin/systemctl" --root="$root" set-default graphical.target
-            "$root/usr/bin/systemctl" --root="$root" enable "$display.service"
+            systemctl --root="$root" set-default graphical.target
+            systemctl --root="$root" enable "$display.service"
             ;;
         *) die 'Invalid profile in workspace' ;;
     esac
@@ -123,7 +123,7 @@ if [[ ${1:-} == --inside ]]; then
     done
     root_password=$(awk -F: '$1=="root" {print $2}' "$root/etc/shadow")
     [[ $root_password == '!'* || $root_password == '*'* ]] || die 'Root account is not locked'
-    "$root/usr/bin/systemctl" --root="$root" enable NetworkManager.service
+    systemctl --root="$root" enable NetworkManager.service
     printf 'PARTLABEL=userdata / ext4 defaults,noatime,x-systemd.growfs 0 1\n' > "$root/etc/fstab"
     cat /builder/uke-persist.fstab >> "$root/etc/fstab"
     install -d -m700 "$root/mnt/vendor/persist"
