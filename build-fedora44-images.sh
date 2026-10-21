@@ -142,7 +142,9 @@ for package in libssc iio-sensor-proxy uke-ssc-fileservice; do
     "${dnf[@]}" builddep "$spec"
     rpmbuild -ba --target aarch64 --define "_topdir /work/$top" "$spec"
     if [[ $package == libssc ]]; then
-        "${dnf[@]}" install "$top"/RPMS/aarch64/libssc-devel-0.4.4-*.fc44.aarch64.rpm
+        "${dnf[@]}" install \
+            "$top"/RPMS/aarch64/libssc-0.4.4-*.fc44.aarch64.rpm \
+            "$top"/RPMS/aarch64/libssc-devel-0.4.4-*.fc44.aarch64.rpm
     fi
 done
 top=uke-linux-hardware-support/xiaomi-uke-firmware/build/fedora44-image-data/rpmbuild
