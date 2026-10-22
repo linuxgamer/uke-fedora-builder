@@ -136,6 +136,12 @@ if [[ ${1:-} == --inside ]]; then
     rpm --root "$root" -qa --qf '%{NAME}\t%{EPOCHNUM}\t%{VERSION}\t%{RELEASE}\t%{ARCH}\n' | \
         LC_ALL=C sort > /workspace/packages.tsv
     root_mib=$(cat /workspace/ROOT-MIB)
+    # mkfs.ext4 -d creates the root inode as 0755 even when Fedora's
+    # filesystem package stages the installroot directory as 0555.
+    chmod 0755 "$root"
+    local_contexts=$root/etc/selinux/targeted/contexts/files/file_contexts.local
+    [[ -f $local_contexts && ! -s $local_contexts ]] || die 'Unexpected local SELinux file contexts'
+    printf '%s\n' '/mnt/vendor/persist -d system_u:object_r:mnt_t:s0' > "$local_contexts"
     truncate -s "$((root_mib * 1024 * 1024))" /workspace/userdata.raw.img
     mkfs.ext4 -q -F -b 4096 -L UKE_LINUX -m 0 \
         -E lazy_itable_init=0,lazy_journal_init=0 -d "$root" /workspace/userdata.raw.img
