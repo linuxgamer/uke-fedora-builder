@@ -26,7 +26,7 @@ if [[ ${1:-} == --inside ]]; then
     dnf -y --setopt="system_cachedir=/build-cache/$dnf_cache" --setopt=keepcache=True --setopt=install_weak_deps=False install \
         bc bison clang compiler-rt cpio elfutils-libelf-devel flex gcc gcc-c++ \
         gzip llvm lld make ncurses-devel openssl-devel perl python3 rsync \
-        zstd dtc kmod findutils ccache
+        zstd dtc kmod findutils diffutils ccache
     original=/kernel-out
     output=/workspace/kernel-out
     [[ -s $original/.config && -s $original/boot-initramfs.cpio.gz && -s $original/Module.symvers ]] || die 'Incomplete native kernel output'

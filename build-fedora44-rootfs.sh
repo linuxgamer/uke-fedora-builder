@@ -29,7 +29,7 @@ if [[ ${1:-} == --inside ]]; then
         phase_start=$SECONDS
     }
     dnf -y --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True --setopt=install_weak_deps=False install \
-        tar zstd gcc-c++ e2fsprogs e2fsprogs-devel libselinux-devel systemd
+        tar zstd gcc-c++ e2fsprogs e2fsprogs-devel libselinux-devel systemd diffutils
     dnf -y --use-host-config --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True --installroot="$root" --releasever=44 \
         --setopt=install_weak_deps=False --setopt=localpkg_gpgcheck=False install \
         fedora-release basesystem bash coreutils systemd systemd-udev \

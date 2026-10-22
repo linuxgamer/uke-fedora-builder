@@ -296,11 +296,7 @@ input_hash=$(
         "$blobs/touch/reference.bin" "$core_rpm" "$kernel_rpms"/*.rpm "$hardware_rpms"/*.rpm | \
         awk '{print $1}' | sha256sum | cut -d' ' -f1
 )
-reuse_profiles=0
-if ((resume)) && [[ -s $output/BUILD-INPUTS.sha256 ]] && \
-   [[ $(cat "$output/BUILD-INPUTS.sha256") == "$input_hash" ]]; then
-    reuse_profiles=1
-fi
+reuse_profiles=$resume
 printf '%s\n' "$input_hash" > "$output/BUILD-INPUTS.sha256"
 profile_valid() {
     local path=$1 profile=$2
