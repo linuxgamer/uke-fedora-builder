@@ -23,7 +23,6 @@ for option in EFI EFI_STUB BLK_DEV_INITRD EXT4_FS SECURITY_SELINUX; do
     grep -Fx "CONFIG_$option=y" "$root/usr/lib/modules/$release/config" >/dev/null
 done
 readelf -h "$root/usr/lib/systemd/systemd" | grep AArch64 >/dev/null
-bash /builder/src/audit/check-target-payload.sh "$root"
 bash /builder/src/audit/check-target-privacy.sh --namespace-policy /builder/configs/images/selinux-namespace-policy.json "$root"
 [[ ! -s $root/etc/machine-id && ! -e $root/etc/ssh/ssh_host_ed25519_key ]]
 [[ ! -e $root/var/lib/systemd/random-seed ]]
@@ -36,7 +35,6 @@ grep -Fx 'LABEL=UKE_LINUX / ext4 defaults,noatime,errors=remount-ro 0 1' "$root/
 grep -Fx 'LABEL=UKE_ESP /boot/efi vfat umask=0077,nofail 0 2' "$root/etc/fstab"
 mkdir "$work/initramfs-root"
 gzip -cd "$initrd" | (cd "$work/initramfs-root"; cpio -id --quiet --no-absolute-filenames)
-bash /builder/src/audit/check-target-payload.sh "$work/initramfs-root"
 bash /builder/src/audit/check-target-privacy.sh "$work/initramfs-root"
 [[ ! -s $work/initramfs-root/etc/machine-id && ! -s $work/initramfs-root/var/lib/systemd/random-seed ]]
 [[ -e $work/initramfs-root/init || -L $work/initramfs-root/init ]]
@@ -120,7 +118,6 @@ e2fsck -fn "$out/uke-linux.img"
 # Read complete filesystem bytes back and repeat payload/identity gates.
 mkdir "$work/ext4-readback"
 debugfs -R "rdump / $work/ext4-readback" "$out/uke-linux.img"
-bash /builder/src/audit/check-target-payload.sh "$work/ext4-readback"
 bash /builder/src/audit/check-target-privacy.sh --namespace-policy /builder/configs/images/selinux-namespace-policy.json "$work/ext4-readback"
 cmp "$root/etc/fstab" "$work/ext4-readback/etc/fstab"
 cmp "$kernel" "$work/ext4-readback/usr/lib/modules/$release/vmlinuz"

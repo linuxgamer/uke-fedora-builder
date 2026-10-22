@@ -1,5 +1,4 @@
-/referances/*
-!/referances/README.md
+/source-cache/
 /build/
 /artifacts/
 /reports/*

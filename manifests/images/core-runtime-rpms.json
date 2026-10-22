@@ -3,7 +3,6 @@
   "date": "2026-10-05",
   "target": "fedora-rawhide-aarch64",
   "scope": "Exact 57-input console closure for the immutable official Fedora runtime base",
-  "python_target_payload": false,
   "kde_derivative_payload": false,
   "hardware_tested": false,
   "packages": [

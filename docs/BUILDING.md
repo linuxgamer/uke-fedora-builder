@@ -1,37 +1,30 @@
-# Kernel and Fedora image construction
+# Build Fedora 44 images for Xiaomi Pad 7
 
-For the Xiaomi Pad 7 Fedora 44 image set, follow the
-[Fedora 44 build guide](FEDORA44-BUILD-CACHE.md). On an x86_64 PC, its
-`--cross-kernel` option compiles the ARM64 kernel with native Clang and avoids
-the long emulated kernel compilation. Other packages still use AArch64
-containers; the option is unavailable on an ARM64 host.
+Run these commands from the root of the `uke-fedora` workspace. Docker or
+Podman, `avbtool`, `jq`, `g++`, `sha256sum` and `zstd` must be available. The
+stock boot template and required OS3.0.304.0 OEM files are bundled and
+verified by the script.
 
-The kernel repository owns the standalone `senemos.sh` entry and its pinned
-host environment. See its [build guide](https://github.com/MCC45TR/senemos-uke-kernel-mainline/blob/main/docs/BUILDING.md).
+For KDE and GNOME:
 
 ```sh
-git clone https://github.com/MCC45TR/senemos-uke-kernel-mainline.git
-cd senemos-uke-kernel-mainline
-./senemos.sh --build 7.2.9 --distro=fedora --test
+./uke-fedora-builder/build-fedora44-images.sh --cross-kernel \
+  --profiles kde,gnome --output build/fedora44-images-desktop
 ```
 
-In the multi-repository Uke workspace, invoke
-`./senemos-uke-kernel/senemos.sh`. The old root kernel entry is removed.
-Verified archives and reusable build/artifact output belong to the kernel
-checkout. Firmware, image inputs, boot handoff and target-image construction
-remain independent from kernel package acceptance.
+Omit `--cross-kernel` on an ARM64 host. Without `--profiles`, the builder makes
+separate TTY, KDE, GNOME, Phosh and Plasma Mobile pairs. Desktop builds also
+produce a TTY pair as a shared prerequisite. The script creates files only;
+it does not flash or select a slot.
 
-The workspace image entry is `ukelinux.sh`. It uses the Fedora builder
-to produce local Core candidates; future accepted releases belong to `uke-linux-images`.
-Current image prerequisites and failed/corrected trials are in the
-[private engineering records](https://github.com/MCC45TR/uke-linux-docs).
-Local filesystem acceptance is recorded separately from untested tablet boot.
+Check progress or stop a running build from another terminal:
 
-Boot ABI receipts extract the core rows from the final Kbuild `Module.symvers`.
-Both boot stages rebuild modules before comparing those rows. A legacy
-`vmlinux.symvers` file can survive cache reuse and must not establish current
-exports. `tests/kernel-export-contract.sh` covers stale receipts, changed core
-symbols/CRCs and missing tables while allowing module-only export changes.
+```sh
+./uke-fedora-builder/build-fedora44-images.sh --status --output build/fedora44-images-desktop
+./uke-fedora-builder/build-fedora44-images.sh --stop --output build/fedora44-images-desktop
+```
 
-See [Core image construction](IMAGES.md) for the locked runtime closure,
-ESP32 debug profile, local filesystem checks and unresolved device release gates.
+To continue an interrupted build, repeat the build command with `--resume`.
+The detailed log is `build.log` in the output directory. Completed stages and
+matching RPMs are reused after input and checksum checks. See
+[Fedora 44 build cache](FEDORA44-BUILD-CACHE.md) for cache details.

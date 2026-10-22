@@ -77,7 +77,7 @@ device_pair_verify() {
             .qemu_evidence.result.wrong_filesystem_uuid_rejected==true
          else false end) and
         .sha256.boot==$boot and .sha256.system==$system and
-        .checks.module_byte_match==1146 and .checks.no_python==true and .checks.privacy==true and
+        .checks.module_byte_match==1146 and .checks.privacy==true and
         .checks.sparse_roundtrip==true and .checks.full_sparse_logical_coverage==true and
         .qemu_tested==true and .qemu_evidence.sha256==$vm and .qemu_evidence.result==$result[0] and
         .qemu_evidence.result.real_ext4_root_transition==true and

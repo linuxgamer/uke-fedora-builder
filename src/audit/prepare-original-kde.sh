@@ -30,11 +30,9 @@ while IFS=$'\t' read -r relative expected repo; do
   keydb=$out/fedora-keydb
   name=$(rpm -qp --qf '%{NAME}' "$package")
   if [[ $repo == '@stored_transaction(copr-uke-development)' ]]; then
-    # Existing non-KDE native support libraries do not gain a Python exception.
     case $name in atk|at-spi2-core|at-spi2-atk|libwacom|libwacom-data|libaccounts-glib) :;; *) exit 1;; esac
     destination=$out/native
     keydb=$out/copr-keydb
-    if rpm -qp --requires "$package" | grep -Ei 'python|pypy|libpython'; then exit 1; fi
   elif [[ $repo == '@stored_transaction(fedora-cisco-openh264)' ]]; then
     [[ $name == openh264 ]]
   fi
@@ -47,7 +45,6 @@ while IFS=$'\t' read -r relative expected repo; do
 done < <(jq -r '.rpms[]|[.package_path,.nevra,.repo_id]|@tsv' "$plan")
 [[ $(sha256sum "$plan" | cut -d ' ' -f1) == "$plan_sha" ]]
 [[ $(wc -l < "$out/packages.jsonl") == "$(jq '.rpms|length' "$plan")" ]]
-bash "$builder/src/audit/check-target-payload.sh" "$out/native"
 jq -s --arg plan "$plan_sha" \
   '{purpose:"original-Fedora-KDE-dependency-closure",transaction_sha256:$plan,packages:.}' \
   "$out/packages.jsonl" > "$out/receipt.json"

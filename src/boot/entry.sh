@@ -104,8 +104,8 @@ boot_main() {
         die 'At least 4 GiB available RAM is required before starting the 3 GiB build container'
     fi
     if [[ -z $stock ]]; then
-        stock=$BUILDER/referances/firmware/$template/extracted/boot.img
-        [[ -f $stock ]] || stock=$BUILDER/referances/firmware/$template/boot.img
+        stock=$BUILDER/source-cache/firmware/$template/extracted/boot.img
+        [[ -f $stock ]] || stock=$BUILDER/source-cache/firmware/$template/boot.img
     fi
     [[ -f $stock && ! -L $stock ]] || die 'Provide --stock-boot with the reviewed stock template; firmware is not downloaded automatically'
     kernel=$(realpath -e "$kernel"); core=$(realpath -e "$core")
@@ -129,7 +129,7 @@ boot_main() {
     verify_cache "$artifact/$module_rpm" "$(jq -r --arg file "$module_rpm" '.packages[]|select(.file==$file)|.sha256' "$artifact/build-manifest.json")"
     host_image=$(jq -r .host_tool_image "$profile"); kernel_image=$(jq -r .kernel_tool_image "$profile")
     for input in "$host_image" "$kernel_image"; do "$ENGINE" image exists "$input" || die 'Pinned build image missing; prepare the qualified Core/kernel environment first'; done
-    mkdir -p "$BUILDER/build/boot" "$BUILDER/referances/firmware/global-os3.0.304.0"
+    mkdir -p "$BUILDER/build/boot" "$BUILDER/source-cache/firmware/global-os3.0.304.0"
     exec 9> "$BUILDER/build/ukelinux-build.lock"
     if ! flock -n 9; then say 'Queued behind another image invocation'; flock 9; fi
     [[ $(df -Pk "$BUILDER/build" | awk 'NR==2 {print $4}') -ge $((8*1024*1024)) ]] || die 'At least 8 GiB free space is required'
@@ -151,11 +151,11 @@ boot_main() {
     [[ $(boot_recipe_hash "$WORK/recipe") == "$recipe_source" ]] || die 'Boot source changed while freezing the recipe'
     printf '%s\n' "$recipe" > "$WORK/inputs/recipe-sha256"
     printf '%s\n' "$effective_profile" > "$WORK/inputs/profile.json"
-    mkdir -p "$BUILDER/referances/firmware/$selected_template"
-    cp "$stock" "$BUILDER/referances/firmware/$selected_template/boot.img.part"
-    verify_cache "$BUILDER/referances/firmware/$selected_template/boot.img.part" "$stock_hash"
-    mv "$BUILDER/referances/firmware/$selected_template/boot.img.part" "$BUILDER/referances/firmware/$selected_template/boot.img"
-    cp "$BUILDER/referances/firmware/$selected_template/boot.img" "$WORK/inputs/stock-boot.img"
+    mkdir -p "$BUILDER/source-cache/firmware/$selected_template"
+    cp "$stock" "$BUILDER/source-cache/firmware/$selected_template/boot.img.part"
+    verify_cache "$BUILDER/source-cache/firmware/$selected_template/boot.img.part" "$stock_hash"
+    mv "$BUILDER/source-cache/firmware/$selected_template/boot.img.part" "$BUILDER/source-cache/firmware/$selected_template/boot.img"
+    cp "$BUILDER/source-cache/firmware/$selected_template/boot.img" "$WORK/inputs/stock-boot.img"
     cp "$artifact/build-manifest.json" "$WORK/inputs/kernel-manifest.json"
     cp "$artifact/output/applied-patches.txt" "$WORK/inputs/applied-patches.txt"
     cp "$artifact/$module_rpm" "$WORK/inputs/modules.rpm"

@@ -41,7 +41,7 @@ use. Later containers start with their compilers and packaging tools already
 installed. The containers also share `uke-fedora-builder/build/cache/`: DNF5
 keeps downloaded RPMs in `dnf/` and `dnf-x86_64/`, while ccache keeps repeated
 compilations in `ccache/` and `ccache-cross/`. Kernel source archives remain in
-the kernel component's `referances/` cache. The exact tool image IDs are part
+the kernel component's `source-cache/` cache. The exact tool image IDs are part
 of each profile's input receipt. These paths are ignored by Git.
 
 The TTY rootfs is built first. KDE, GNOME, Phosh and Plasma Mobile copy its

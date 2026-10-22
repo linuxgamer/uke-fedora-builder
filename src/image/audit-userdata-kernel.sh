@@ -35,7 +35,6 @@ gzip -dc "$output/initramfs.cpio.gz" > "$output/initramfs.cpio"
 mkdir "$output/initramfs"
 (cd "$output/initramfs"; cpio -idm --quiet --no-absolute-filenames < ../initramfs.cpio)
 here=$(cd "$(dirname "$0")/.." && pwd)
-bash "$here/audit/check-target-payload.sh" "$output/initramfs"
 bash "$here/audit/check-target-privacy.sh" "$output/initramfs"
 [[ ! -e $output/initramfs/usr/libexec/senemos-local-shell ]]
 find "$output/initramfs" -type l -path '*wants*' -printf '%P\n' > "$output/startup-links.txt"

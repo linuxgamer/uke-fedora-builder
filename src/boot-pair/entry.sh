@@ -136,7 +136,7 @@ pair_main() {
     [[ $(stat -c %s "$device_dt") -ge 40 && $(stat -c %s "$device_dt") -le 2097152 ]] || die 'Live FDT is outside ARM64 bounds'
     kernel_cache=${kernel_cache:-$BUILDER/build/boot/boot-b-b09bf6e9cbffa4d5}
     core=${core:-$BUILDER/build/images/core-rawhide-6bd23aae9255f1de}
-    stock=${stock:-$BUILDER/referances/firmware/android17-evolutionx-12.1/boot.img}
+    stock=${stock:-$BUILDER/source-cache/firmware/android17-evolutionx-12.1/boot.img}
     kernel_cache=$(realpath -e "$kernel_cache"); core=$(realpath -e "$core"); kernel=$(realpath -e "$kernel")
     local artifact=$kernel/artifacts/fedora-rawhide/7.2.9 recipe effective uuid hash name file tool
     verify_cache "$artifact/build-manifest.json" "$(jq -r .kernel_manifest_sha256 "$profile")"
@@ -201,7 +201,7 @@ pair_main() {
     cp "$kernel_cache/inputs/kernel.spec" "$WORK/inputs/kernel.spec"
     cp -a "$kernel_cache/inputs/SOURCES" "$WORK/inputs/"
     if jq -e '.early_adsp_firmware==true' "$WORK/inputs/profile.json" >/dev/null; then
-        local firmware=$kernel/referances/firmware/uke-os3.0.304.0-adsp-20261012.tar
+        local firmware=$kernel/source-cache/firmware/uke-os3.0.304.0-adsp-20261012.tar
         verify_cache "$firmware" "$(jq -er .archive_sha256 "$BUILDER/configs/firmware/uke-adsp-early.json")"
         cp --reflink=auto "$firmware" "$WORK/inputs/early-firmware.tar"
     fi
@@ -209,12 +209,12 @@ pair_main() {
     cp --reflink=auto "$core/prepared-root.tar" "$WORK/inputs/prepared-root.tar"
     while IFS=$'\t' read -r name hash; do
         [[ $name == *.aarch64.rpm ]] || continue
-        verify_cache "$kernel/referances/copr/11090323/$name" "$hash"
-        cp "$kernel/referances/copr/11090323/$name" "$WORK/inputs/kernel/$name"
+        verify_cache "$kernel/source-cache/copr/11090323/$name" "$hash"
+        cp "$kernel/source-cache/copr/11090323/$name" "$WORK/inputs/kernel/$name"
     done < <(jq -r '.[]|[.file,.sha256]|@tsv' "$BUILDER/configs/boot/uke-boot-pair-rpms.json")
     mkdir -p "$WORK/inputs/support"
     while IFS=$'\t' read -r name hash; do
-        local package=$BUILDER/../uke-linux-hardware-support/uke-boot/referances/copr/11108587/fedora-rawhide-aarch64/$name
+        local package=$BUILDER/../uke-linux-hardware-support/uke-boot/source-cache/copr/11108587/fedora-rawhide-aarch64/$name
         verify_cache "$package" "$hash"
         cp "$package" "$WORK/inputs/support/$name"
     done < <(jq -r '.[]|[.file,.sha256]|@tsv' "$BUILDER/configs/boot/uke-boot-pair-support-rpms.json")
