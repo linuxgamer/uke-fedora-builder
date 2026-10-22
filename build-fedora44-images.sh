@@ -128,7 +128,6 @@ make -C uke-linux-hardware-support/uke-core-meta srpm
 make -C uke-linux-hardware-support/uke-sensors touchscreen-srpm
 make -C uke-linux-hardware-support/uke-platform-runtime srpm
 make -C uke-linux-hardware-support/uke-boot srpm
-make -C uke-linux-hardware-support/uke-desktop-integration bluetooth-srpm
 make -C uke-linux-hardware-support/xiaomi-uke-firmware fedora44-image-data-srpm
 for package in libssc iio-sensor-proxy uke-ssc-fileservice; do
     make -C uke-linux-hardware-support/uke-sensors PACKAGE="$package" srpm
@@ -140,7 +139,6 @@ tops=(
   uke-linux-hardware-support/uke-sensors/build/rpmbuild
   uke-linux-hardware-support/uke-platform-runtime/build/rpmbuild
   uke-linux-hardware-support/uke-boot/build/srpm/rpmbuild
-  uke-linux-hardware-support/uke-desktop-integration/build/bluetooth-srpm/rpmbuild
 )
 for top in "${tops[@]}"; do
     case $top in
@@ -148,8 +146,7 @@ for top in "${tops[@]}"; do
         */uke-core-meta/*) component=core-meta;;
         */uke-sensors/*) component=touchscreen;;
         */uke-platform-runtime/*) component=battery;;
-        */uke-boot/*) component=wifi-factory;;
-        */uke-desktop-integration/*) component=bluetooth;;
+        */uke-boot/*) component=boot-integration;;
     esac
     bash uke-fedora-builder/src/image/build-control.sh stage "RPM: $component"
     specs=("$top"/SPECS/*.spec)
@@ -187,7 +184,7 @@ for top in "${tops[@]}"; do
         rpmbuild -bp --nodeps --target aarch64 --define "_topdir /work/$top" "${specs[0]}"
         source=$top/BUILD/senemos-uke-linux-kernel-mainline-7.2.11-build/linux-7.2.11
         base=$top/boot-userspace
-        bash "$source/boot-recipe/src/boot/make-initramfs-base.sh" "$base" 7.2.11-6
+        bash "$source/boot-recipe/src/boot/make-initramfs-base.sh" "$base" 7.2.11-9
         clang++ -std=c++17 -O2 -Wall -Wextra -Werror -ffile-prefix-map="$PWD"=. \
             "$source/boot-recipe/src/boot/offline-switch-root.cpp" -o "$base/uke-offline-switch-root"
         clang++ -std=c++20 -O2 -Wall -Wextra -Werror \
@@ -195,7 +192,7 @@ for top in "${tops[@]}"; do
         for binary in uke-offline-switch-root boot-image-aarch64; do
             readelf -h "$base/$binary" | grep -E 'Machine:.*AArch64' >/dev/null
         done
-        printf '7.2.11-6\n' > "$top/.fedora44-cross-pending"
+        printf '7.2.11-9\n' > "$top/.fedora44-cross-pending"
         continue
     fi
     rpmbuild -ba --target aarch64 --define "_topdir /work/$top" "${specs[0]}"
@@ -260,14 +257,14 @@ if [[ -f $kernel_top/.fedora44-cross-pending ]]; then
 set -Eeuo pipefail
 top=/work/senemos-uke-kernel/build/srpm/rpmbuild
 source=$top/BUILD/senemos-uke-linux-kernel-mainline-7.2.11-build/linux-7.2.11
-[[ $(cat "$top/.fedora44-cross-pending") == 7.2.11-6 ]] || exit 2
+[[ $(cat "$top/.fedora44-cross-pending") == 7.2.11-9 ]] || exit 2
 export UKE_CROSS_KERNEL=1 UKE_CCACHE=1 CCACHE_DIR=/build-cache/ccache-cross CCACHE_MAXSIZE=10G
 export KBUILD_BUILD_USER=senemos KBUILD_BUILD_HOST=copr-builder KBUILD_BUILD_VERSION=1
 export SOURCE_DATE_EPOCH=1791725270
 KBUILD_BUILD_TIMESTAMP=$(date -u -d "@$SOURCE_DATE_EPOCH" '+%Y-%m-%d %H:%M:%S UTC')
 export KBUILD_BUILD_TIMESTAMP
 bash "$source/boot-recipe/src/boot/build-payload.sh" "$source" \
-    "$top/native-kernel-out" "$top/boot-userspace/base" 7.2.11-6 8
+    "$top/native-kernel-out" "$top/boot-userspace/base" 7.2.11-9 8
 CROSS_KERNEL
 
     "$container" run --rm -i --network=host --platform linux/arm64 --security-opt label=disable \
@@ -301,14 +298,13 @@ guard=$(find "$kernel_top/BUILD" -type f \
   -path '*/linux-7.2.11/boot-recipe/src/boot/dracut/root-guard.sh' -print -quit)
 [[ -n $guard ]] || die 'Prepared kernel source was not found'
 kernel_source=${guard%/boot-recipe/src/boot/dracut/root-guard.sh}
-core_rpm=$workspace/uke-linux-hardware-support/uke-core-meta/build/srpm/rpmbuild/RPMS/aarch64/uke-core-meta-1.0.0-5.fc44.aarch64.rpm
+core_rpm=$workspace/uke-linux-hardware-support/uke-core-meta/build/srpm/rpmbuild/RPMS/aarch64/uke-core-meta-1.0.4-1.fc44.aarch64.rpm
 hardware_rpms=$output/hardware-rpms
 mkdir -p "$hardware_rpms"
 find "$hardware_rpms" -maxdepth 1 -type f -name '*.rpm' -delete
 cp "$workspace"/uke-linux-hardware-support/uke-sensors/build/rpmbuild/RPMS/aarch64/uke-touchscreen-0.1.0-*.fc44.aarch64.rpm "$hardware_rpms/"
-cp "$workspace"/uke-linux-hardware-support/uke-platform-runtime/build/rpmbuild/RPMS/aarch64/uke-battery-observer-0.1.0-*.fc44.aarch64.rpm "$hardware_rpms/"
-cp "$workspace"/uke-linux-hardware-support/uke-boot/build/srpm/rpmbuild/RPMS/aarch64/uke-wifi-factory-0.1.0-*.fc44.aarch64.rpm "$hardware_rpms/"
-cp "$workspace"/uke-linux-hardware-support/uke-desktop-integration/build/bluetooth-srpm/rpmbuild/RPMS/aarch64/uke-bluetooth-0.1.0-*.fc44.aarch64.rpm "$hardware_rpms/"
+cp "$workspace"/uke-linux-hardware-support/uke-platform-runtime/build/rpmbuild/RPMS/aarch64/uke-battery-observer-1.1.0-*.fc44.aarch64.rpm "$hardware_rpms/"
+cp "$workspace"/uke-linux-hardware-support/uke-boot/build/srpm/rpmbuild/RPMS/aarch64/uke-boot-integration-1.5.2-*.fc44.aarch64.rpm "$hardware_rpms/"
 cp "$workspace"/uke-linux-hardware-support/uke-sensors/build/srpm/libssc/rpmbuild/RPMS/aarch64/libssc-0.4.4-*.fc44.aarch64.rpm "$hardware_rpms/"
 cp "$workspace"/uke-linux-hardware-support/uke-sensors/build/srpm/iio-sensor-proxy/rpmbuild/RPMS/aarch64/iio-sensor-proxy-3.9-*.fc44.aarch64.rpm "$hardware_rpms/"
 cp "$workspace"/uke-linux-hardware-support/uke-sensors/build/srpm/uke-ssc-fileservice/rpmbuild/RPMS/aarch64/uke-ssc-fileservice-2026.09.21-*.fc44.aarch64.rpm "$hardware_rpms/"

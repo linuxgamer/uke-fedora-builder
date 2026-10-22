@@ -1,0 +1,7 @@
+# Host compiler for the AArch64 payload verifier; excluded from tablet images.
+FROM localhost/uke-dnf-dracut-sdk:20261015-audit
+COPY configs/keys/fedora-46.asc /etc/pki/rpm-gpg/RPM-GPG-KEY-uke-fedora46
+RUN printf '[rawhide]\nname=Fedora Rawhide\nmetalink=https://mirrors.fedoraproject.org/metalink?repo=rawhide&arch=aarch64\nenabled=1\ngpgcheck=1\ngpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-uke-fedora46\n' > /etc/yum.repos.d/rawhide.repo \
+    && dnf5 -y --setopt=install_weak_deps=False install \
+       libzstd-devel \
+    && dnf5 clean all

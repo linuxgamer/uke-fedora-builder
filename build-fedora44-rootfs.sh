@@ -52,26 +52,23 @@ if [[ ${1:-} == --inside ]]; then
         || die 'Expected three matching Fedora 44 AArch64 Linux 7.2.11 RPMs'
     kernel_release=$(rpm --root "$root" -q --qf '%{VERSION}-%{RELEASE}\n' senemos-uke-linux-kernel-mainline-core)
     [[ -d $root/usr/lib/modules/${kernel_release%.fc44} ]] || die 'Kernel module directory is absent'
-    [[ $(rpm --root "$root" -q --qf '%{VERSION} %{RELEASE} %{ARCH}' uke-core-meta) == '1.0.0 5.fc44 aarch64' ]] || die 'Expected Fedora 44 Uke Core RPM'
+    [[ $(rpm --root "$root" -q --qf '%{VERSION} %{RELEASE} %{ARCH}' uke-core-meta) == '1.0.4 1.fc44 aarch64' ]] || die 'Expected Fedora 44 Uke Core RPM'
     dnf -y --use-host-config --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True --installroot="$root" --releasever=44 \
         --setopt=install_weak_deps=False --setopt=localpkg_gpgcheck=False install \
         /hardware-rpms/uke-touchscreen-0.1.0-*.fc44.aarch64.rpm \
-        /hardware-rpms/uke-battery-observer-0.1.0-*.fc44.aarch64.rpm \
-        /hardware-rpms/uke-wifi-factory-0.1.0-*.fc44.aarch64.rpm \
-        /hardware-rpms/uke-bluetooth-0.1.0-*.fc44.aarch64.rpm \
+        /hardware-rpms/uke-battery-observer-1.1.0-*.fc44.aarch64.rpm \
+        /hardware-rpms/uke-boot-integration-1.5.2-*.fc44.aarch64.rpm \
         /hardware-rpms/libssc-0.4.4-*.fc44.aarch64.rpm \
         /hardware-rpms/iio-sensor-proxy-3.9-*.fc44.aarch64.rpm \
         /hardware-rpms/uke-ssc-fileservice-2026.09.21-*.fc44.aarch64.rpm \
         /hardware-rpms/uke-fedora44-oem-data-3.0.303.0-2.fc44.noarch.rpm
     phase_done hardware-packages
     rpm --root "$root" -q --qf '%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n' \
-        uke-touchscreen uke-battery-observer uke-wifi-factory uke-bluetooth | \
-        awk '($1 == "uke-touchscreen" && $3 ~ /^([8-9]|[1-9][0-9]+)\.fc44$/) ||
-             ($1 == "uke-battery-observer" && $3 ~ /^([8-9]|[1-9][0-9]+)\.fc44$/) ||
-             ($1 == "uke-wifi-factory" && $3 ~ /^(22|2[3-9]|[3-9][0-9]|[1-9][0-9][0-9]+)\.fc44$/) ||
-             ($1 == "uke-bluetooth" && $3 ~ /^([6-9]|[1-9][0-9]+)\.fc44$/) {
-                if ($2 == "0.1.0" && $4 == "aarch64") good++
-             } END { exit good != 4 || NR != 4 }' || die 'Expected four selected Fedora 44 hardware RPMs'
+        uke-touchscreen uke-battery-observer uke-boot-integration | \
+        awk '($1 == "uke-touchscreen" && $2 == "0.1.0" && $3 == "13.fc44" && $4 == "aarch64") ||
+             ($1 == "uke-battery-observer" && $2 == "1.1.0" && $3 == "1.fc44" && $4 == "aarch64") ||
+             ($1 == "uke-boot-integration" && $2 == "1.5.2" && $3 == "1.fc44" && $4 == "aarch64") { good++ }
+             END { exit good != 3 || NR != 3 }' || die 'Expected three selected Fedora 44 hardware RPMs'
     rpm --root "$root" -q --qf '%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n' \
         libssc iio-sensor-proxy uke-ssc-fileservice uke-fedora44-oem-data | \
         awk '($1 == "libssc" && $2 == "0.4.4" && $3 ~ /^[1-9][0-9]*\.fc44$/ && $4 == "aarch64") ||
@@ -232,8 +229,9 @@ for part in core modules dtbs; do
     else [[ $kernel_rpm_release == "${BASH_REMATCH[1]}" ]] || die 'Kernel RPM releases differ'; fi
 done
 hardware_files=()
-for package in uke-touchscreen uke-battery-observer uke-wifi-factory uke-bluetooth; do
-    mapfile -t matches < <(find "$hardware_rpms" -maxdepth 1 -type f -name "$package-0.1.0-*.fc44.aarch64.rpm" -print)
+for entry in 'uke-touchscreen:0.1.0' 'uke-battery-observer:1.1.0' 'uke-boot-integration:1.5.2'; do
+    IFS=: read -r package version <<< "$entry"
+    mapfile -t matches < <(find "$hardware_rpms" -maxdepth 1 -type f -name "$package-$version-*.fc44.aarch64.rpm" -print)
     ((${#matches[@]} == 1)) || die "Expected one Fedora 44 $package RPM in $hardware_rpms"
     hardware_files+=("${matches[0]}")
 done

@@ -15,6 +15,10 @@ printf '\101\122\115\144' | dd of=Image bs=1 seek=56 conv=notrunc status=none
 "$codec" inspect boot | jq -e '.kernel_bytes==64 and .ramdisk_bytes==0 and .signature_bytes==0 and .avb_footer_present==false' >/dev/null
 "$codec" extract boot unpacked
 cmp Image unpacked
+"$codec" create Image userdata-vrr.img userdata-vrr
+[[ $(dd if=userdata-vrr.img bs=1 skip=44 count=1536 status=none | tr -d '\000') == 'senemos.root=userdata msm.o82_vrr_test_min_hz=30' ]]
+"$codec" extract userdata-vrr.img vrr.Image
+cmp Image vrr.Image
 reject() { if "$codec" "$@" >/dev/null 2>&1; then echo 'Malformed image accepted' >&2; exit 1; fi; }
 reject pack stock Image boot 65536
 reject pack stock Image undersized 4096

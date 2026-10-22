@@ -1,0 +1,7 @@
+# Host VM tools only. No file from this image is a tablet boot payload.
+FROM registry.fedoraproject.org/fedora@sha256:f7d3478d02965da40131211c19fb827b4d6e3de0904e9d582a9354af47949c14
+RUN dnf5 -y --setopt=install_weak_deps=False install \
+    qemu-system-x86-core dracut f2fs-tools e2fsprogs xfsprogs btrfs-progs util-linux kmod tar zstd \
+    policycoreutils attr acl libcap findutils diffutils cpio gzip jq gcc-c++ rsync \
+    openssl-devel libzstd-devel libasan libubsan bubblewrap \
+    && dnf5 clean all
