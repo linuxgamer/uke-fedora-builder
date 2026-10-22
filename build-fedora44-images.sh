@@ -5,7 +5,7 @@ set -Eeuo pipefail
 here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 workspace=$(cd -- "$here/.." && pwd)
 stock=''
-stock_archive=$here/payload/uke-os3.0.303.0-boot.zst
+stock_archive=$here/payload/uke-os3.0.304.0-boot.zst
 output=$workspace/build/fedora44-images
 rebuild_kernel=0
 cross_kernel=0
@@ -73,8 +73,8 @@ source "$here/src/image/build-control.sh"
 if [[ $control == --status ]]; then build_status; exit; fi
 if [[ $control == --stop ]]; then build_stop; exit; fi
 [[ -x $here/build-fedora44-rootfs.sh && -x $here/build-fedora44-boot-a.sh ]] || die 'Image builders are missing'
-[[ -x $workspace/uke-linux-hardware-support/xiaomi-uke-firmware/src/verify-local-blobs.sh ]] || die 'OEM input verifier is missing'
-"$workspace/uke-linux-hardware-support/xiaomi-uke-firmware/src/verify-local-blobs.sh" || die 'Bundled OEM inputs are incomplete'
+[[ -x $workspace/uke-linux-hardware-support/xiaomi-uke-firmware/src/verify-fedora44-oem-304.sh ]] || die 'OEM input verifier is missing'
+"$workspace/uke-linux-hardware-support/xiaomi-uke-firmware/src/verify-fedora44-oem-304.sh" || die 'Bundled OS3.0.304.0 OEM inputs are incomplete'
 if command -v podman >/dev/null; then container=podman
 elif command -v docker >/dev/null; then container=docker
 else die 'Docker or Podman is required'; fi
@@ -92,14 +92,14 @@ fi
 build_start
 exec > >(tee -a "$output/build.log") 2>&1
 if [[ -z $stock ]]; then
-    [[ -f $stock_archive && ! -L $stock_archive ]] || die 'Bundled OS3.0.303.0 stock boot template is missing'
-    [[ $(sha256sum "$stock_archive" | cut -d' ' -f1) == 47851c5899e9343a544f3efa6e12f5408fdc87f54da7078070025e7745160263 ]] || die 'Bundled stock boot archive hash mismatch'
+    [[ -f $stock_archive && ! -L $stock_archive ]] || die 'Bundled OS3.0.304.0 stock boot template is missing'
+    [[ $(sha256sum "$stock_archive" | cut -d' ' -f1) == d001b8d7a15d088ae24fcb90d85023bd7af2360f8fdb72cf70f4e1b8c6085f1b ]] || die 'Bundled stock boot archive hash mismatch'
     stock_dir=$(mktemp -d "$output/.stock.XXXXXXXX")
     stock=$stock_dir/boot.img
     zstd -q -dc "$stock_archive" > "$stock"
 fi
 [[ -f $stock && ! -L $stock ]] || die 'Stock boot.img is missing'
-[[ $(sha256sum "$stock" | cut -d' ' -f1) == efdee1d4e1acd7f6e77615330dbcb045caeeccad8568d89fa6abd627f606e77f ]] || die 'Unexpected stock boot.img'
+[[ $(sha256sum "$stock" | cut -d' ' -f1) == 1eaf4858a7c70bee9b663b485f3192b164738bbdae3edbb986a5419621c8ef30 ]] || die 'Unexpected stock boot.img'
 if ((cross_kernel)); then
     [[ $(uname -m) == x86_64 ]] || die '--cross-kernel requires an x86_64 host'
 fi
@@ -308,9 +308,9 @@ cp "$workspace"/uke-linux-hardware-support/uke-boot/build/srpm/rpmbuild/RPMS/aar
 cp "$workspace"/uke-linux-hardware-support/uke-sensors/build/srpm/libssc/rpmbuild/RPMS/aarch64/libssc-0.4.4-*.fc44.aarch64.rpm "$hardware_rpms/"
 cp "$workspace"/uke-linux-hardware-support/uke-sensors/build/srpm/iio-sensor-proxy/rpmbuild/RPMS/aarch64/iio-sensor-proxy-3.9-*.fc44.aarch64.rpm "$hardware_rpms/"
 cp "$workspace"/uke-linux-hardware-support/uke-sensors/build/srpm/uke-ssc-fileservice/rpmbuild/RPMS/aarch64/uke-ssc-fileservice-2026.09.21-*.fc44.aarch64.rpm "$hardware_rpms/"
-cp "$workspace"/uke-linux-hardware-support/xiaomi-uke-firmware/build/fedora44-image-data/rpmbuild/RPMS/noarch/uke-fedora44-oem-data-3.0.303.0-2.fc44.noarch.rpm "$hardware_rpms/"
+cp "$workspace"/uke-linux-hardware-support/xiaomi-uke-firmware/build/fedora44-image-data/rpmbuild/RPMS/noarch/uke-fedora44-oem-data-3.0.304.0-1.fc44.noarch.rpm "$hardware_rpms/"
 
-blobs=$workspace/uke-linux-hardware-support/xiaomi-uke-firmware/payload/oem-os3.0.303.0
+blobs=$workspace/uke-linux-hardware-support/xiaomi-uke-firmware/payload/oem-os3.0.304.0
 input_hash=$(
   {
     printf '%s\n' "${UKE_FEDORA_MIRROR:-https://mirror.yandex.ru/fedora/linux}"

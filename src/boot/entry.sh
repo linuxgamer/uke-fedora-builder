@@ -6,8 +6,8 @@ boot_help() {
 Uke Fedora boot_b debug image (host only; no flashing)
 Usage: ./ukelinux.sh --build boot --distro=fedora [options]
   --stock-boot FILE       Exact reviewed OEM/ROM boot.img template
-  --boot-template ID     android17-evolutionx-12.1 (default), global-os3.0.304.0,
-                         or global-os3.0.303.0; physical slot contents stay unverified
+  --boot-template ID     android17-evolutionx-12.1 (default) or global-os3.0.304.0;
+                         physical slot contents stay unverified
   --kernel-component DIR Qualified 13-patch kernel component (workspace default)
   --core-candidate DIR   Qualified Core assembly containing the pinned initramfs
   --reuse-boot-cache DIR Reuse a verified earlier local boot build, preserving its paths
@@ -129,7 +129,7 @@ boot_main() {
     verify_cache "$artifact/$module_rpm" "$(jq -r --arg file "$module_rpm" '.packages[]|select(.file==$file)|.sha256' "$artifact/build-manifest.json")"
     host_image=$(jq -r .host_tool_image "$profile"); kernel_image=$(jq -r .kernel_tool_image "$profile")
     for input in "$host_image" "$kernel_image"; do "$ENGINE" image exists "$input" || die 'Pinned build image missing; prepare the qualified Core/kernel environment first'; done
-    mkdir -p "$BUILDER/build/boot" "$BUILDER/referances/firmware/global-os3.0.303.0"
+    mkdir -p "$BUILDER/build/boot" "$BUILDER/referances/firmware/global-os3.0.304.0"
     exec 9> "$BUILDER/build/ukelinux-build.lock"
     if ! flock -n 9; then say 'Queued behind another image invocation'; flock 9; fi
     [[ $(df -Pk "$BUILDER/build" | awk 'NR==2 {print $4}') -ge $((8*1024*1024)) ]] || die 'At least 8 GiB free space is required'

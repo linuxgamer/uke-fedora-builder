@@ -116,7 +116,7 @@ expected_image=$(sed -n 's/^linux_kernel_sha256=//p' "$kernel_out/boot-manifest"
 [[ $(sha256sum "$kernel_out/arch/arm64/boot/Image" | cut -d ' ' -f1) == "$expected_image" ]] || die 'Native Image does not match boot manifest'
 [[ $(stat -c %s "$stock") == 100663296 ]] || die 'Unexpected OEM boot partition size'
 stock_hash=$(sha256sum "$stock" | cut -d ' ' -f1)
-[[ $stock_hash == efdee1d4e1acd7f6e77615330dbcb045caeeccad8568d89fa6abd627f606e77f ]] || die 'Use the reviewed OS3.0.303.0.WOZMIXM OEM boot.img'
+[[ $stock_hash == 1eaf4858a7c70bee9b663b485f3192b164738bbdae3edbb986a5419621c8ef30 ]] || die 'Use the reviewed OS3.0.304.0.WOZMIXM OEM boot.img'
 stock_avb=$(avbtool info_image --image "$stock") || die 'OEM boot AVB metadata is invalid'
 rollback=$(sed -n 's/^Rollback Index:[[:space:]]*//p' <<< "$stock_avb")
 [[ $rollback =~ ^[0-9]+$ ]] || die 'OEM rollback index missing'

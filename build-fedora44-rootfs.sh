@@ -61,7 +61,7 @@ if [[ ${1:-} == --inside ]]; then
         /hardware-rpms/libssc-0.4.4-*.fc44.aarch64.rpm \
         /hardware-rpms/iio-sensor-proxy-3.9-*.fc44.aarch64.rpm \
         /hardware-rpms/uke-ssc-fileservice-2026.09.21-*.fc44.aarch64.rpm \
-        /hardware-rpms/uke-fedora44-oem-data-3.0.303.0-2.fc44.noarch.rpm
+        /hardware-rpms/uke-fedora44-oem-data-3.0.304.0-1.fc44.noarch.rpm
     phase_done hardware-packages
     rpm --root "$root" -q --qf '%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n' \
         uke-touchscreen uke-battery-observer uke-boot-integration | \
@@ -74,7 +74,7 @@ if [[ ${1:-} == --inside ]]; then
         awk '($1 == "libssc" && $2 == "0.4.4" && $3 ~ /^[1-9][0-9]*\.fc44$/ && $4 == "aarch64") ||
              ($1 == "iio-sensor-proxy" && $2 == "3.9" && $3 ~ /^[1-9][0-9]*\.fc44$/ && $4 == "aarch64") ||
              ($1 == "uke-ssc-fileservice" && $2 == "2026.09.21" && $3 ~ /^[1-9][0-9]*\.fc44$/ && $4 == "aarch64") ||
-             ($1 == "uke-fedora44-oem-data" && $2 == "3.0.303.0" && $3 == "2.fc44" && $4 == "noarch") { good++ }
+             ($1 == "uke-fedora44-oem-data" && $2 == "3.0.304.0" && $3 == "1.fc44" && $4 == "noarch") { good++ }
              END { exit good != 4 || NR != 4 }' || die 'Expected Fedora 44 SSC and OEM data RPMs'
     fi
     systemctl --root="$root" enable uke-touchscreen.service uke-battery.service uke-wifi-factory.service uke-bluetooth-address.service
@@ -188,7 +188,7 @@ if [[ ${1:-} == --inside ]]; then
 fi
 
 profile='' rpms='' core_rpm='' hardware_rpms='' output='' base_rootfs='' panel=csot root_mib=4096
-blobs=$here/../uke-linux-hardware-support/xiaomi-uke-firmware/payload/oem-os3.0.303.0
+blobs=$here/../uke-linux-hardware-support/xiaomi-uke-firmware/payload/oem-os3.0.304.0
 while (($#)); do
     case $1 in
         --profile|--kernel-rpms|--core-rpm|--hardware-rpms|--base-rootfs|--touch-panel|--output|--root-mib)
@@ -203,7 +203,7 @@ case $profile in tty|kde|gnome|phosh|plasma-mobile) ;; *) die 'Unknown profile' 
 [[ -d $rpms && -f $core_rpm && -d $hardware_rpms && -d $blobs && -n $output ]] || die 'Provide --kernel-rpms, --core-rpm, --hardware-rpms and --output; bundled OEM files must be present'
 case $panel in csot|tm) ;; *) die 'Select csot or tm touch panel' ;; esac
 [[ $root_mib =~ ^[1-9][0-9]*$ ]] && ((root_mib >= 4096 && root_mib <= 65536)) || die 'Root image size must be 4096..65536 MiB'
-verify="$here/../uke-linux-hardware-support/xiaomi-uke-firmware/src/verify-local-blobs.sh"
+verify="$here/../uke-linux-hardware-support/xiaomi-uke-firmware/src/verify-fedora44-oem-304.sh"
 [[ -x $verify ]] || die "Local blob verifier missing: $verify"
 "$verify" --root "$blobs" || die 'Bundled OEM files are incomplete; see uke-linux-hardware-support/xiaomi-uke-firmware/docs/LOCAL-BLOBS.md'
 if command -v podman >/dev/null; then container=podman
@@ -242,8 +242,8 @@ for entry in 'libssc:0.4.4:aarch64' 'iio-sensor-proxy:3.9:aarch64' \
     ((${#matches[@]} == 1)) || die "Expected one Fedora 44 $package RPM in $hardware_rpms"
     hardware_files+=("${matches[0]}")
 done
-[[ -f $hardware_rpms/uke-fedora44-oem-data-3.0.303.0-2.fc44.noarch.rpm ]] || die 'Expected Fedora 44 OEM data RPM release 2'
-hardware_files+=("$hardware_rpms/uke-fedora44-oem-data-3.0.303.0-2.fc44.noarch.rpm")
+[[ -f $hardware_rpms/uke-fedora44-oem-data-3.0.304.0-1.fc44.noarch.rpm ]] || die 'Expected Fedora 44 OEM data RPM release 1'
+hardware_files+=("$hardware_rpms/uke-fedora44-oem-data-3.0.304.0-1.fc44.noarch.rpm")
 [[ ! -e $output ]] || die 'Output path already exists; select a new directory'
 mkdir -p "$output"
 cache_dir=$here/build/cache
