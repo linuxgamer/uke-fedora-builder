@@ -16,6 +16,33 @@ The image recipes use original Fedora packages, including the standard KDE Plasm
 
 ## Building
 
+For the Xiaomi Pad 7 Fedora 44 release image set, run from the workspace root:
+
+```sh
+./uke-fedora-builder/build-fedora44-images.sh --cross-kernel --output build/fedora44-images
+```
+
+The command creates separate TTY, KDE, GNOME, Phosh, and Plasma Mobile image
+pairs. In another terminal, inspect concise progress or stop the complete build:
+
+```sh
+./uke-fedora-builder/build-fedora44-images.sh --status --output build/fedora44-images
+./uke-fedora-builder/build-fedora44-images.sh --stop --output build/fedora44-images
+```
+
+After interruption, restart with the same options and `--resume`:
+
+```sh
+./uke-fedora-builder/build-fedora44-images.sh --cross-kernel --resume --output build/fedora44-images
+```
+
+Completed RPMs and profile artifacts are reused only after their inputs and checksums
+pass validation. The full output is also saved to `build.log`; stage transitions
+are in `progress.log` and `status.json`. Rootfs phase timings are in each
+profile's `timing.tsv`.
+
+The older upstream development targets remain available below.
+
 Run these from the [Uke workspace](https://github.com/linuxgamer/uke-fedora), which provides `ukelinux.sh`:
 
 ```sh

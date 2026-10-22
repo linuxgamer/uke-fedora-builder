@@ -147,7 +147,10 @@ trap 'printf "fedora44-boot-a: incomplete output retained at %s\n" "$output" >&2
 printf '%s\n' "$release" > "$output/KERNEL-RELEASE"
 printf '%s\n' "$jobs" > "$output/JOBS"
 printf '%s\n' "$build_platform" > "$output/BUILD-PLATFORM"
+run_label=()
+[[ -z ${UKE_BUILD_RUN_ID:-} ]] || run_label=(--label "org.uke-fedora.build-run=$UKE_BUILD_RUN_ID")
 "$container" run --rm --network=host --platform "$build_platform" --security-opt label=disable \
+    "${run_label[@]}" \
     -v "$source:/kernel-source:ro" -v "$kernel_out:/kernel-out:ro" -v "$output:/workspace" \
     -v "$cache_dir:/build-cache" \
     -v "$here/build-fedora44-boot-a.sh:/builder.sh:ro" \

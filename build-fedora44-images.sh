@@ -9,11 +9,14 @@ stock_archive=$here/payload/uke-os3.0.303.0-boot.zst
 output=$workspace/build/fedora44-images
 rebuild_kernel=0
 cross_kernel=0
+resume=0
+control=''
 
 usage() {
     cat <<'HELP'
-Usage: ./uke-fedora-builder/build-fedora44-images.sh [--stock-boot FILE] [--output NEW_DIR]
-       [--rebuild-kernel] [--cross-kernel]
+Usage: ./uke-fedora-builder/build-fedora44-images.sh [--stock-boot FILE] [--output DIR]
+       [--rebuild-kernel] [--cross-kernel] [--resume]
+       ./uke-fedora-builder/build-fedora44-images.sh --status|--stop --output DIR
 
 Build Linux 7.2.11 and Fedora 44 RPMs, then make separate TTY, KDE, GNOME,
 Phosh and Plasma Mobile boot_a/userdata pairs. Bundled OEM inputs, including
@@ -21,6 +24,8 @@ the reviewed stock boot template, are verified automatically. The script does
 not flash or select a device slot. A matching previous kernel RPM build is
 reused unless --rebuild-kernel is given.
 On x86_64, --cross-kernel compiles the ARM64 kernel with native Clang.
+Use --status for concise progress, --stop to cancel, and --resume to reuse
+completed artifacts from an interrupted run.
 HELP
 }
 die() { printf 'fedora44-images: %s\n' "$*" >&2; exit 1; }
@@ -34,9 +39,15 @@ while (($#)); do
         -h|--help) usage; exit 0;;
         --rebuild-kernel) rebuild_kernel=1; shift;;
         --cross-kernel) cross_kernel=1; shift;;
+        --resume) resume=1; shift;;
+        --status|--stop) [[ -z $control ]] || die 'Choose one control command'; control=$1; shift;;
         *) die "Unknown argument: $1";;
     esac
 done
+output=$(realpath -m -- "$output")
+source "$here/src/image/build-control.sh"
+if [[ $control == --status ]]; then build_status; exit; fi
+if [[ $control == --stop ]]; then build_stop; exit; fi
 [[ -x $here/build-fedora44-rootfs.sh && -x $here/build-fedora44-boot-a.sh ]] || die 'Image builders are missing'
 [[ -x $workspace/uke-linux-hardware-support/xiaomi-uke-firmware/src/verify-local-blobs.sh ]] || die 'OEM input verifier is missing'
 "$workspace/uke-linux-hardware-support/xiaomi-uke-firmware/src/verify-local-blobs.sh" || die 'Bundled OEM inputs are incomplete'
@@ -48,14 +59,18 @@ else die 'Docker or Podman is required'; fi
 sanitizer_env=()
 [[ $(uname -m) == aarch64 ]] || sanitizer_env=(-e ASAN_OPTIONS=detect_leaks=0)
 for command in avbtool jq g++ sha256sum zstd; do command -v "$command" >/dev/null || die "Missing host command: $command"; done
-output=$(realpath -m -- "$output")
-[[ ! -e $output && ! -L $output ]] || die 'Output directory already exists; choose a new --output'
-mkdir -p "$output"
+if ((resume)); then
+    [[ -d $output && ! -L $output ]] || die '--resume requires an existing output directory'
+else
+    [[ ! -e $output && ! -L $output ]] || die 'Output directory already exists; use --resume or choose a new --output'
+    mkdir -p "$output"
+fi
+build_start
+exec > >(tee -a "$output/build.log") 2>&1
 if [[ -z $stock ]]; then
     [[ -f $stock_archive && ! -L $stock_archive ]] || die 'Bundled OS3.0.303.0 stock boot template is missing'
     [[ $(sha256sum "$stock_archive" | cut -d' ' -f1) == 47851c5899e9343a544f3efa6e12f5408fdc87f54da7078070025e7745160263 ]] || die 'Bundled stock boot archive hash mismatch'
     stock_dir=$(mktemp -d "$output/.stock.XXXXXXXX")
-    trap 'rm -rf -- "$stock_dir"' EXIT
     stock=$stock_dir/boot.img
     zstd -q -dc "$stock_archive" > "$stock"
 fi
@@ -69,9 +84,11 @@ mkdir -p "$cache_dir/dnf" "$cache_dir/dnf-x86_64" "$cache_dir/ccache" "$cache_di
 
 # bash -s reads the build recipe from stdin; keep stdin attached to the container.
 "$container" run --rm -i --network=host --platform linux/arm64 --security-opt label=disable \
+    --label "org.uke-fedora.build-run=$UKE_BUILD_RUN_ID" \
     "${sanitizer_env[@]}" \
     -e UKE_REBUILD_KERNEL="$rebuild_kernel" -e UKE_CROSS_KERNEL="$cross_kernel" \
-    -v "$cache_dir:/build-cache" \
+    -e UKE_BUILD_RUN_ID -e UKE_BUILD_OUTPUT=/build-output \
+    -v "$cache_dir:/build-cache" -v "$output:/build-output" \
     -v "$workspace:/work" -w /work registry.fedoraproject.org/fedora:44 \
     bash -s <<'BUILD_RPMS'
 set -Eeuo pipefail
@@ -80,6 +97,7 @@ dnf=(dnf5 -y --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True)
   gzip coreutils findutils diffutils ccache
 export UKE_CCACHE=1 CCACHE_DIR=/build-cache/ccache CCACHE_MAXSIZE=10G
 git config --global --add safe.directory /work/senemos-uke-kernel
+bash uke-fedora-builder/src/image/build-control.sh stage 'Prepare source RPMs'
 make -C senemos-uke-kernel srpm
 make -C uke-linux-hardware-support/uke-core-meta srpm
 make -C uke-linux-hardware-support/uke-sensors touchscreen-srpm
@@ -90,6 +108,7 @@ make -C uke-linux-hardware-support/xiaomi-uke-firmware fedora44-image-data-srpm
 for package in libssc iio-sensor-proxy uke-ssc-fileservice; do
     make -C uke-linux-hardware-support/uke-sensors PACKAGE="$package" srpm
 done
+bash uke-fedora-builder/src/image/build-control.sh done
 tops=(
   senemos-uke-kernel/build/srpm/rpmbuild
   uke-linux-hardware-support/uke-core-meta/build/srpm/rpmbuild
@@ -99,6 +118,15 @@ tops=(
   uke-linux-hardware-support/uke-desktop-integration/build/bluetooth-srpm/rpmbuild
 )
 for top in "${tops[@]}"; do
+    case $top in
+        senemos-uke-kernel/*) component=kernel;;
+        */uke-core-meta/*) component=core-meta;;
+        */uke-sensors/*) component=touchscreen;;
+        */uke-platform-runtime/*) component=battery;;
+        */uke-boot/*) component=wifi-factory;;
+        */uke-desktop-integration/*) component=bluetooth;;
+    esac
+    bash uke-fedora-builder/src/image/build-control.sh stage "RPM: $component"
     specs=("$top"/SPECS/*.spec)
     ((${#specs[@]} == 1)) && [[ -f ${specs[0]} ]] || { printf 'Expected one spec in %s\n' "$top" >&2; exit 1; }
     if [[ $top == senemos-uke-kernel/build/srpm/rpmbuild ]]; then
@@ -107,7 +135,17 @@ for top in "${tops[@]}"; do
     if [[ $top == senemos-uke-kernel/build/srpm/rpmbuild && $UKE_REBUILD_KERNEL == 0 ]] && \
        bash uke-fedora-builder/src/image/kernel-rpm-cache.sh check "$top"; then
         printf 'Reusing verified Linux 7.2.11 RPMs and boot build\n'
+        bash uke-fedora-builder/src/image/build-control.sh done
         continue
+    fi
+    if [[ $top != senemos-uke-kernel/build/srpm/rpmbuild ]] && \
+       bash uke-fedora-builder/src/image/rpm-build-cache.sh check "$top"; then
+        printf 'Reusing verified RPMs from %s\n' "$top"
+        bash uke-fedora-builder/src/image/build-control.sh done
+        continue
+    fi
+    if [[ $top != senemos-uke-kernel/build/srpm/rpmbuild ]]; then
+        bash uke-fedora-builder/src/image/rpm-build-cache.sh invalidate "$top"
     fi
     if [[ $top == senemos-uke-kernel/build/srpm/rpmbuild ]]; then
         rm -f -- "$top/.fedora44-kernel-cache/SOURCE-SHA256"
@@ -141,28 +179,52 @@ for top in "${tops[@]}"; do
         # the cache receipt and the per-profile boot image builds.
         rpmbuild -bp --nodeps --target aarch64 --define "_topdir /work/$top" "${specs[0]}"
         bash uke-fedora-builder/src/image/kernel-rpm-cache.sh record "$top"
+    else
+        bash uke-fedora-builder/src/image/rpm-build-cache.sh record "$top"
     fi
+    bash uke-fedora-builder/src/image/build-control.sh done
 done
 sensor_root=uke-linux-hardware-support/uke-sensors/build/srpm
 for package in libssc iio-sensor-proxy uke-ssc-fileservice; do
+    bash uke-fedora-builder/src/image/build-control.sh stage "RPM: $package"
     top=$sensor_root/$package/rpmbuild
     spec=$top/SPECS/$package.spec
-    "${dnf[@]}" builddep "$spec"
-    rpmbuild -ba --target aarch64 --define "_topdir /work/$top" "$spec"
+    dependencies=()
+    if [[ $package == iio-sensor-proxy ]]; then
+        dependencies=("$sensor_root/libssc/rpmbuild/RPMS/aarch64/"libssc{,-devel}-0.4.4-*.fc44.aarch64.rpm)
+    fi
+    if bash uke-fedora-builder/src/image/rpm-build-cache.sh check "$top" "${dependencies[@]}"; then
+        printf 'Reusing verified RPMs from %s\n' "$top"
+    else
+        bash uke-fedora-builder/src/image/rpm-build-cache.sh invalidate "$top"
+        "${dnf[@]}" builddep "$spec"
+        rpmbuild -ba --target aarch64 --define "_topdir /work/$top" "$spec"
+        bash uke-fedora-builder/src/image/rpm-build-cache.sh record "$top" "${dependencies[@]}"
+    fi
     if [[ $package == libssc ]]; then
         "${dnf[@]}" install \
             "$top"/RPMS/aarch64/libssc-0.4.4-*.fc44.aarch64.rpm \
             "$top"/RPMS/aarch64/libssc-devel-0.4.4-*.fc44.aarch64.rpm
     fi
+    bash uke-fedora-builder/src/image/build-control.sh done
 done
 top=uke-linux-hardware-support/xiaomi-uke-firmware/build/fedora44-image-data/rpmbuild
-rpmbuild -ba --target noarch --define "_topdir /work/$top" \
-    "$top/SPECS/uke-fedora44-oem-data.spec"
+bash uke-fedora-builder/src/image/build-control.sh stage 'RPM: OEM data'
+if bash uke-fedora-builder/src/image/rpm-build-cache.sh check "$top"; then
+    printf 'Reusing verified RPMs from %s\n' "$top"
+else
+    bash uke-fedora-builder/src/image/rpm-build-cache.sh invalidate "$top"
+    rpmbuild -ba --target noarch --define "_topdir /work/$top" \
+        "$top/SPECS/uke-fedora44-oem-data.spec"
+    bash uke-fedora-builder/src/image/rpm-build-cache.sh record "$top"
+fi
+bash uke-fedora-builder/src/image/build-control.sh done
 BUILD_RPMS
 
 kernel_top=$workspace/senemos-uke-kernel/build/srpm/rpmbuild
 if [[ -f $kernel_top/.fedora44-cross-pending ]]; then
     "$container" run --rm -i --network=host --platform linux/amd64 --security-opt label=disable \
+        --label "org.uke-fedora.build-run=$UKE_BUILD_RUN_ID" \
         -v "$cache_dir:/build-cache" -v "$workspace:/work" -w /work \
         registry.fedoraproject.org/fedora:44 bash -s <<'CROSS_KERNEL'
 set -Eeuo pipefail
@@ -183,6 +245,7 @@ bash "$source/boot-recipe/src/boot/build-payload.sh" "$source" \
 CROSS_KERNEL
 
     "$container" run --rm -i --network=host --platform linux/arm64 --security-opt label=disable \
+        --label "org.uke-fedora.build-run=$UKE_BUILD_RUN_ID" \
         "${sanitizer_env[@]}" \
         -v "$cache_dir:/build-cache" -v "$workspace:/work" -w /work \
         registry.fedoraproject.org/fedora:44 bash -s <<'PACKAGE_KERNEL'
@@ -197,6 +260,7 @@ rpmbuild -bp --nodeps --target aarch64 --define "_topdir $top" "$spec"
 bash /work/uke-fedora-builder/src/image/kernel-rpm-cache.sh record "$top"
 rm -f -- "$top/.fedora44-cross-pending"
 PACKAGE_KERNEL
+    build_progress_done
 fi
 
 [[ -d $kernel_top/BUILD ]] || die 'Kernel RPM build did not create its BUILD directory'
@@ -208,7 +272,8 @@ guard=$(find "$kernel_top/BUILD" -type f \
 kernel_source=${guard%/boot-recipe/src/boot/dracut/root-guard.sh}
 core_rpm=$workspace/uke-linux-hardware-support/uke-core-meta/build/srpm/rpmbuild/RPMS/aarch64/uke-core-meta-1.0.0-5.fc44.aarch64.rpm
 hardware_rpms=$output/hardware-rpms
-mkdir "$hardware_rpms"
+mkdir -p "$hardware_rpms"
+find "$hardware_rpms" -maxdepth 1 -type f -name '*.rpm' -delete
 cp "$workspace"/uke-linux-hardware-support/uke-sensors/build/rpmbuild/RPMS/aarch64/uke-touchscreen-0.1.0-*.fc44.aarch64.rpm "$hardware_rpms/"
 cp "$workspace"/uke-linux-hardware-support/uke-platform-runtime/build/rpmbuild/RPMS/aarch64/uke-battery-observer-0.1.0-*.fc44.aarch64.rpm "$hardware_rpms/"
 cp "$workspace"/uke-linux-hardware-support/uke-boot/build/srpm/rpmbuild/RPMS/aarch64/uke-wifi-factory-0.1.0-*.fc44.aarch64.rpm "$hardware_rpms/"
@@ -218,17 +283,90 @@ cp "$workspace"/uke-linux-hardware-support/uke-sensors/build/srpm/iio-sensor-pro
 cp "$workspace"/uke-linux-hardware-support/uke-sensors/build/srpm/uke-ssc-fileservice/rpmbuild/RPMS/aarch64/uke-ssc-fileservice-2026.09.21-*.fc44.aarch64.rpm "$hardware_rpms/"
 cp "$workspace"/uke-linux-hardware-support/xiaomi-uke-firmware/build/fedora44-image-data/rpmbuild/RPMS/noarch/uke-fedora44-oem-data-3.0.303.0-2.fc44.noarch.rpm "$hardware_rpms/"
 
+blobs=$workspace/uke-linux-hardware-support/xiaomi-uke-firmware/payload/oem-os3.0.303.0
+input_hash=$(
+    sha256sum "$stock" "$kernel_out/.config" "$kernel_out/boot-initramfs.cpio.gz" \
+        "$kernel_out/boot-manifest" "$kernel_out/arch/arm64/boot/Image" \
+        "$here/build-fedora44-rootfs.sh" "$here/build-fedora44-boot-a.sh" \
+        "$here/src/image/ext4-labels.cpp" "$here/src/boot-pair/android-sparse.cpp" \
+        "$here/src/boot/boot-image.cpp" "$here/configs/firstboot/uke-create-user" \
+        "$here/configs/firstboot/uke-create-user.service" \
+        "$here/configs/images/uke-persist.fstab" "$here/configs/images/uke-ssc-fedora44.target" \
+        "$blobs/touch/csot/normal.bin" "$blobs/touch/csot/config.ini" \
+        "$blobs/touch/reference.bin" "$core_rpm" "$kernel_rpms"/*.rpm "$hardware_rpms"/*.rpm | \
+        awk '{print $1}' | sha256sum | cut -d' ' -f1
+)
+reuse_profiles=0
+if ((resume)) && [[ -s $output/BUILD-INPUTS.sha256 ]] && \
+   [[ $(cat "$output/BUILD-INPUTS.sha256") == "$input_hash" ]]; then
+    reuse_profiles=1
+fi
+printf '%s\n' "$input_hash" > "$output/BUILD-INPUTS.sha256"
+profile_valid() {
+    local path=$1 profile=$2
+    [[ -d $path && ! -L $path && -s $path/SHA256SUMS && -s $path/BUILD-INPUTS.sha256 ]] || return 1
+    [[ $(cat "$path/PROFILE-ID" 2>/dev/null) == "$profile" ]] || return 1
+    [[ $(cat "$path/BUILD-INPUTS.sha256") == "$input_hash" ]] || return 1
+    (cd "$path" && sha256sum -c --status SHA256SUMS)
+}
+clear_profile_dir() {
+    local path=$1 name=${1##*/}
+    [[ $path == "$output/$name" && $name =~ ^\.(tty|kde|gnome|phosh|plasma-mobile)-(rootfs|pair)\.[0-9a-f-]+$ || \
+       $path == "$output/$name" && $name =~ ^(tty|kde|gnome|phosh|plasma-mobile)-(rootfs|pair)$ ]] \
+        || die "Unsafe profile path: $path"
+    [[ ! -L $path ]] || die "Refusing symlink: $path"
+    [[ -e $path ]] || return 0
+    "$container" run --rm --network=none --security-opt label=disable \
+        --label "org.uke-fedora.build-run=$UKE_BUILD_RUN_ID" \
+        -v "$output:/build-output" registry.fedoraproject.org/fedora:44 \
+        /usr/bin/rm -rf -- "/build-output/$name"
+    [[ ! -e $path ]] || die "Could not clear $path"
+}
+for stale in "$output"/.*-rootfs.* "$output"/.*-pair.*; do
+    [[ -e $stale ]] || continue
+    clear_profile_dir "$stale"
+done
 for profile in tty kde gnome phosh plasma-mobile; do
     root_mib=4096
     [[ $profile == tty ]] || root_mib=8192
-    "$here/build-fedora44-rootfs.sh" \
-        --profile "$profile" --kernel-rpms "$kernel_rpms" \
-        --core-rpm "$core_rpm" --hardware-rpms "$hardware_rpms" \
-        --root-mib "$root_mib" --output "$output/$profile-rootfs"
-    "$here/build-fedora44-boot-a.sh" \
-        --rootfs "$output/$profile-rootfs" --kernel-source "$kernel_source" \
-        --kernel-out "$kernel_out" --stock-boot "$stock" \
-        --output "$output/$profile-pair"
-    (cd "$output/$profile-pair" && sha256sum -c SHA256SUMS)
+    root_dir=$output/$profile-rootfs
+    pair_dir=$output/$profile-pair
+    build_progress "$profile rootfs"
+    root_reused=0
+    if ((reuse_profiles)) && profile_valid "$root_dir" "$profile" && \
+       [[ $(cat "$root_dir/ROOT-MIB") == "$root_mib" ]]; then
+        root_reused=1
+        printf 'Reusing verified %s rootfs\n' "$profile"
+    else
+        clear_profile_dir "$root_dir"
+        stage=$output/.$profile-rootfs.$UKE_BUILD_RUN_ID
+        clear_profile_dir "$stage"
+        "$here/build-fedora44-rootfs.sh" \
+            --profile "$profile" --kernel-rpms "$kernel_rpms" \
+            --core-rpm "$core_rpm" --hardware-rpms "$hardware_rpms" \
+            --root-mib "$root_mib" --output "$stage"
+        printf '%s\n' "$input_hash" > "$stage/BUILD-INPUTS.sha256"
+        (cd "$stage" && sha256sum BUILD-INPUTS.sha256 >> SHA256SUMS)
+        profile_valid "$stage" "$profile" || die "Incomplete $profile rootfs"
+        mv -- "$stage" "$root_dir"
+    fi
+    build_progress_done
+    build_progress "$profile boot pair"
+    if ((root_reused && reuse_profiles)) && profile_valid "$pair_dir" "$profile"; then
+        printf 'Reusing verified %s boot pair\n' "$profile"
+    else
+        clear_profile_dir "$pair_dir"
+        stage=$output/.$profile-pair.$UKE_BUILD_RUN_ID
+        clear_profile_dir "$stage"
+        "$here/build-fedora44-boot-a.sh" \
+            --rootfs "$root_dir" --kernel-source "$kernel_source" \
+            --kernel-out "$kernel_out" --stock-boot "$stock" \
+            --output "$stage"
+        printf '%s\n' "$input_hash" > "$stage/BUILD-INPUTS.sha256"
+        (cd "$stage" && sha256sum BUILD-INPUTS.sha256 >> SHA256SUMS)
+        profile_valid "$stage" "$profile" || die "Incomplete $profile pair"
+        mv -- "$stage" "$pair_dir"
+    fi
+    build_progress_done
 done
 printf 'Five image pairs are in %s\n' "$output"

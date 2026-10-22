@@ -23,6 +23,11 @@ if [[ ${1:-} == --inside ]]; then
     [[ $# == 1 && -d /workspace && -d /kernel-rpms && -d /hardware-rpms && -d /local-blobs && -f /core-rpm/uke-core-meta.rpm && -f /builder/uke-create-user && -f /builder/uke-create-user.service ]] || die 'Invalid container invocation'
     root=/workspace/root
     mkdir "$root"
+    phase_start=$SECONDS
+    phase_done() {
+        printf '%s\t%s\n' "$1" "$((SECONDS - phase_start))" >> /workspace/timing.tsv
+        phase_start=$SECONDS
+    }
     dnf -y --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True --setopt=install_weak_deps=False install \
         tar zstd gcc-c++ e2fsprogs e2fsprogs-devel libselinux-devel systemd
     dnf -y --use-host-config --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True --installroot="$root" --releasever=44 \
@@ -34,6 +39,7 @@ if [[ ${1:-} == --inside ]]; then
         /kernel-rpms/senemos-uke-linux-kernel-mainline-modules-*.rpm \
         /kernel-rpms/senemos-uke-linux-kernel-mainline-dtbs-*.rpm \
         /core-rpm/uke-core-meta.rpm
+    phase_done base-packages
     rpm --root "$root" -q --qf '%{VERSION} %{RELEASE} %{ARCH}\n' \
         senemos-uke-linux-kernel-mainline-core \
         senemos-uke-linux-kernel-mainline-modules \
@@ -53,6 +59,7 @@ if [[ ${1:-} == --inside ]]; then
         /hardware-rpms/iio-sensor-proxy-3.9-*.fc44.aarch64.rpm \
         /hardware-rpms/uke-ssc-fileservice-2026.09.21-*.fc44.aarch64.rpm \
         /hardware-rpms/uke-fedora44-oem-data-3.0.303.0-2.fc44.noarch.rpm
+    phase_done hardware-packages
     rpm --root "$root" -q --qf '%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n' \
         uke-touchscreen uke-battery-observer uke-wifi-factory uke-bluetooth | \
         awk '($1 == "uke-touchscreen" && $3 ~ /^([8-9]|[1-9][0-9]+)\.fc44$/) ||
@@ -116,6 +123,7 @@ if [[ ${1:-} == --inside ]]; then
             ;;
         *) die 'Invalid profile in workspace' ;;
     esac
+    phase_done profile-packages-and-configuration
     for forbidden in senemos-uke-linux-kernel-mainline senemos-uke-linux-kernel-mainline-boot uke-kernel-update uke-charge-control uke-offline-charge uke-boot-integration; do
         if rpm --root "$root" -q "$forbidden" >/dev/null 2>&1; then
             die "Forbidden boot or charging package in userdata image: $forbidden"
@@ -145,6 +153,7 @@ if [[ ${1:-} == --inside ]]; then
     truncate -s "$((root_mib * 1024 * 1024))" /workspace/userdata.raw.img
     mkfs.ext4 -q -F -b 4096 -L UKE_LINUX -m 0 \
         -E lazy_itable_init=0,lazy_journal_init=0 -d "$root" /workspace/userdata.raw.img
+    phase_done ext4-population
     g++ -std=c++20 -O2 -Wall -Wextra -Werror /builder/ext4-labels.cpp \
         -o /workspace/ext4-labels -lext2fs -lcom_err -lselinux
     contexts=$root/etc/selinux/targeted/contexts/files/file_contexts
@@ -152,18 +161,21 @@ if [[ ${1:-} == --inside ]]; then
     /workspace/ext4-labels apply /workspace/userdata.raw.img "$root" "$contexts"
     /workspace/ext4-labels verify /workspace/userdata.raw.img "$root" "$contexts"
     e2fsck -fn /workspace/userdata.raw.img >/workspace/ext4-check.txt
+    phase_done labeling-and-fsck
     g++ -std=c++20 -O2 -Wall -Wextra -Werror /builder/android-sparse.cpp -o /workspace/android-sparse
     /workspace/android-sparse encode /workspace/userdata.raw.img /workspace/userdata.img
     /workspace/android-sparse decode /workspace/userdata.img /workspace/userdata.readback.img
     cmp /workspace/userdata.raw.img /workspace/userdata.readback.img
+    phase_done sparse-roundtrip
     rm /workspace/userdata.readback.img /workspace/ext4-labels /workspace/android-sparse
     (cd "$root"; tar --numeric-owner --xattrs --acls -cpf - .) | zstd -T2 -3 -o /workspace/rootfs.tar.zst
+    phase_done rootfs-archive
     sha256sum /workspace/rootfs.tar.zst /workspace/userdata.raw.img \
         /workspace/userdata.img /workspace/packages.tsv /workspace/PROFILE \
         /workspace/PROFILE-ID /workspace/ROOT-MIB \
         /workspace/KERNEL-RPMS.sha256 /workspace/CORE-RPM.sha256 \
         /workspace/HARDWARE-RPMS.sha256 /workspace/LOCAL-BLOBS.sha256 \
-        /workspace/TOUCH-PANEL | \
+        /workspace/TOUCH-PANEL /workspace/timing.tsv | \
         sed 's|/workspace/||' > /workspace/SHA256SUMS
     exit 0
 fi
@@ -232,7 +244,10 @@ sha256sum "$rpms"/senemos-uke-linux-kernel-mainline-{core,modules,dtbs}-7.2.11-"
 printf '%s  %s\n' "$(sha256sum "$core_rpm" | cut -d ' ' -f1)" "$(basename -- "$core_rpm")" > "$output/CORE-RPM.sha256"
 sha256sum "${hardware_files[@]}" | sed "s|$hardware_rpms/||" > "$output/HARDWARE-RPMS.sha256"
 sha256sum "$blobs/touch/$panel/normal.bin" "$blobs/touch/$panel/config.ini" "$blobs/touch/reference.bin" | sed "s|$blobs/||" > "$output/LOCAL-BLOBS.sha256"
+run_label=()
+[[ -z ${UKE_BUILD_RUN_ID:-} ]] || run_label=(--label "org.uke-fedora.build-run=$UKE_BUILD_RUN_ID")
 "$container" run --rm --network=host --platform linux/arm64 --security-opt label=disable \
+    "${run_label[@]}" \
     -v "$cache_dir:/build-cache" \
     -v "$output:/workspace" -v "$rpms:/kernel-rpms:ro" \
     -v "$hardware_rpms:/hardware-rpms:ro" \
