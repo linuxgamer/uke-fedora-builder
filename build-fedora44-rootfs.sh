@@ -14,8 +14,9 @@ Compose a Fedora 44 AArch64 rootfs from Fedora packages and locally built
 Linux 7.2.11 and selected hardware RPMs. Requires Docker or Podman and
 AArch64 emulation on an x86_64 host. Output includes a sparse EXT4 image,
 the package inventory and hashes. The image includes OEM touch firmware and a
-tablet touch reference from the bundled, hash-pinned Uke OEM set. An account is
-created on tty1 at the tablet's first boot. The builder never writes a device.
+tablet touch reference from the bundled, hash-pinned Uke OEM set. TTY creates
+an account on tty1; desktop images use their graphical first-run setup. The
+builder never writes a device.
 HELP
 }
 die() { printf 'fedora44-rootfs: %s\n' "$*" >&2; exit 1; }
@@ -89,28 +90,34 @@ if [[ ${1:-} == --inside ]]; then
     [[ -f /local-blobs/touch/reference.bin && ! -L /local-blobs/touch/reference.bin ]] || die 'Missing device touch reference'
     install -Dm600 /local-blobs/touch/reference.bin "$root/var/lib/uke-touch/reference.bin"
     chmod 0700 "$root/var/lib/uke-touch"
-    install -Dm755 /builder/uke-create-user "$root/usr/libexec/uke-create-user"
-    install -Dm644 /builder/uke-create-user.service "$root/usr/lib/systemd/system/uke-create-user.service"
-    systemctl --root="$root" enable uke-create-user.service
     profile=$(cat /workspace/PROFILE-ID)
     case $profile in
         tty)
+            install -Dm755 /builder/uke-create-user "$root/usr/libexec/uke-create-user"
+            install -Dm644 /builder/uke-create-user.service "$root/usr/lib/systemd/system/uke-create-user.service"
+            systemctl --root="$root" enable uke-create-user.service
             systemctl --root="$root" set-default multi-user.target
             systemctl --root="$root" enable getty@tty1.service
             ;;
         kde|gnome|phosh|plasma-mobile)
+            # Desktop profiles copy the verified TTY root as their common base.
+            # Remove its console-only first-boot unit before enabling the GUI.
+            systemctl --root="$root" disable uke-create-user.service
+            rm -f "$root/usr/lib/systemd/system/uke-create-user.service" \
+                "$root/usr/libexec/uke-create-user"
             common=(NetworkManager-wifi bluez mesa-dri-drivers pipewire wireplumber
                     polkit udisks2 xorg-x11-server-Xwayland)
             case $profile in
-                kde) desktop=(plasma-desktop plasma-workspace kwin sddm
+                kde) desktop=(plasma-desktop plasma-workspace kwin sddm plasma-setup
                               sddm-wayland-plasma konsole dolphin plasma-nm
                               plasma-keyboard plasma-systemsettings plasma-pa
                               powerdevil); display=sddm ;;
-                gnome) desktop=(gnome-shell gnome-session-wayland-session gdm gnome-control-center
+                gnome) desktop=(gnome-shell gnome-session-wayland-session gdm gnome-initial-setup gnome-control-center
                                 gnome-settings-daemon gnome-terminal nautilus); display=gdm ;;
-                phosh) desktop=(phosh phoc gdm phosh-mobile-settings
+                phosh) desktop=(phosh phoc gdm gnome-initial-setup gnome-shell
+                                gnome-session-wayland-session gnome-settings-daemon phosh-mobile-settings
                                 stevia-phosh-osk-provider gnome-control-center); display=gdm ;;
-                plasma-mobile) desktop=(plasma-mobile plasma-workspace kwin sddm
+                plasma-mobile) desktop=(plasma-mobile plasma-workspace kwin sddm plasma-setup
                                          plasma-settings plasma-nm plasma-keyboard
                                          plasma-pa powerdevil); display=sddm ;;
             esac
@@ -118,6 +125,28 @@ if [[ ${1:-} == --inside ]]; then
                 --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True \
                 --installroot="$root" --releasever=44 --setopt=install_weak_deps=False \
                 install noopenh264 "${common[@]}" "${desktop[@]}"
+            if [[ $display == sddm ]]; then
+                [[ -x $root/usr/libexec/plasma-setup-bootutil &&
+                   -f $root/usr/lib/systemd/system/plasma-setup.service ]] ||
+                    die 'Plasma graphical first-run setup is missing'
+                chroot "$root" /usr/bin/kwriteconfig6 --file /etc/xdg/plasmasetuprc \
+                    --group Accounts --key UserGroups wheel
+                chroot "$root" /usr/bin/systemd-sysusers \
+                    /usr/lib/sysusers.d/plasma-setup-sysuser.conf
+                systemctl --root="$root" enable plasma-setup.service
+                [[ ! -e $root/etc/plasma-setup-done ]] || die 'Plasma setup already completed in image'
+            else
+                [[ -x $root/usr/libexec/gnome-initial-setup &&
+                   -f $root/usr/share/gnome-session/sessions/gnome-initial-setup.session ]] ||
+                    die 'GNOME graphical first-run setup is missing'
+                install -d -m755 "$root/etc/gdm"
+                if [[ $profile == phosh ]]; then
+                    printf '[daemon]\nInitialSetupEnable=true\nDefaultSession=phosh.desktop\n' \
+                        > "$root/etc/gdm/custom.conf"
+                else
+                    printf '[daemon]\nInitialSetupEnable=true\n' > "$root/etc/gdm/custom.conf"
+                fi
+            fi
             systemctl --root="$root" disable getty@tty1.service
             session=$profile
             [[ $profile != kde ]] || session=plasma
