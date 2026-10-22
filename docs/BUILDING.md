@@ -1,5 +1,11 @@
 # Kernel and Fedora image construction
 
+For the Xiaomi Pad 7 Fedora 44 image set, follow the
+[Fedora 44 build guide](FEDORA44-BUILD-CACHE.md). On an x86_64 PC, its
+`--cross-kernel` option compiles the ARM64 kernel with native Clang and avoids
+the long emulated kernel compilation. Other packages still use AArch64
+containers; the option is unavailable on an ARM64 host.
+
 The kernel repository owns the standalone `senemos.sh` entry and its pinned
 host environment. See its [build guide](https://github.com/MCC45TR/senemos-uke-kernel-mainline/blob/main/docs/BUILDING.md).
 

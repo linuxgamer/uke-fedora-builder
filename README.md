@@ -22,6 +22,14 @@ For the Xiaomi Pad 7 Fedora 44 release image set, run from the workspace root:
 ./uke-fedora-builder/build-fedora44-images.sh --cross-kernel --output build/fedora44-images
 ```
 
+On an x86_64 PC, `--cross-kernel` makes Clang compile the ARM64 kernel directly
+on the host CPU instead of compiling it under AArch64 emulation. This usually
+saves time during the first kernel build. It does not change how the other RPMs
+or Fedora rootfs are built. Omit the flag on an ARM64 host. If a verified
+kernel build is already cached, the script reuses it either way; add
+`--rebuild-kernel` only when you intentionally need to compile the kernel again.
+See [Fedora 44 build cache](docs/FEDORA44-BUILD-CACHE.md) for details.
+
 The command creates separate TTY, KDE, GNOME, Phosh, and Plasma Mobile image
 pairs. In another terminal, inspect concise progress or stop the complete build:
 
