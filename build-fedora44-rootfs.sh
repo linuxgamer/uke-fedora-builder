@@ -112,8 +112,10 @@ if [[ ${1:-} == --inside ]]; then
                                          plasma-settings plasma-nm plasma-keyboard
                                          plasma-pa powerdevil); display=sddm ;;
             esac
-            dnf -y --use-host-config --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True --installroot="$root" --releasever=44 \
-                --setopt=install_weak_deps=False install "${common[@]}" "${desktop[@]}"
+            dnf -y --use-host-config --disable-repo=fedora-cisco-openh264 \
+                --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True \
+                --installroot="$root" --releasever=44 --setopt=install_weak_deps=False \
+                install noopenh264 "${common[@]}" "${desktop[@]}"
             session=$profile
             [[ $profile != kde ]] || session=plasma
             [[ $profile != gnome ]] || session=gnome
