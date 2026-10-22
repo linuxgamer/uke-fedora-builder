@@ -7,6 +7,12 @@ For most x86_64 PCs, start the five-image build with `--cross-kernel`:
     --cross-kernel --output build/fedora44-images
 ```
 
+All five profiles are selected by default. Use `--profiles` to select a
+comma-separated subset, for example `--profiles tty` or `--profiles kde,gnome`.
+A desktop selection also builds or reuses the TTY rootfs and boot pair as
+shared inputs; these TTY artifacts remain in the output directory. The build
+status counts only the selected profiles and their required TTY pair.
+
 The flag compiles the ARM64 kernel with native x86_64 Clang instead of running
 the long kernel compilation inside an emulated AArch64 container. The result
 is still an ARM64 kernel. Other port RPMs and the Fedora rootfs still use
@@ -30,17 +36,36 @@ The other local RPMs also have an input-and-output checksum cache. A matching
 RPM is reused; changed sources, dependent local RPMs, or a missing/corrupt
 output trigger rebuilding that package and running its checks again.
 
-The containers share `uke-fedora-builder/build/cache/`. DNF5 keeps repository
-metadata and downloaded RPMs in `dnf/` and `dnf-x86_64/`; ccache keeps repeated
-compilations in `ccache/` and `ccache-cross/`. Kernel source archives remain in the
-kernel component's `referances/` cache. All these paths are ignored by Git.
-The first build still downloads packages and compiles the kernel. Subsequent
-builds can reuse matching inputs, but package metadata may be refreshed and
-newer Fedora packages may still be downloaded.
+The builder creates reusable Fedora 44 ARM64 and x86_64 tool images on first
+use. Later containers start with their compilers and packaging tools already
+installed. The containers also share `uke-fedora-builder/build/cache/`: DNF5
+keeps downloaded RPMs in `dnf/` and `dnf-x86_64/`, while ccache keeps repeated
+compilations in `ccache/` and `ccache-cross/`. Kernel source archives remain in
+the kernel component's `referances/` cache. The exact tool image IDs are part
+of each profile's input receipt. These paths are ignored by Git.
+
+The TTY rootfs is built first. KDE, GNOME, Phosh and Plasma Mobile copy its
+verified Fedora, kernel and hardware package tree, then install their own
+desktop packages. A changed local RPM or builder input invalidates the
+finished profile cache; the copy also checks the TTY package and OEM receipts.
+The four desktop pairs reuse the verified TTY boot image because the boot
+kernel and initramfs do not depend on the desktop profile. Each pair still has
+its own userdata image and manifest.
+
+The first build still downloads packages, and a newer Fedora package may be
+downloaded on a later run.
+
+Fedora package downloads use `https://mirror.yandex.ru/fedora/linux` by
+default. To use another Fedora mirror, set `UKE_FEDORA_MIRROR` to its HTTPS
+`fedora/linux` root before running the build. The builder keeps Fedora's RPM
+signature checks. Changing the mirror creates new tool images and invalidates
+the profile receipts.
+The Cisco openh264 repository is disabled in the tool images; desktop profiles
+install Fedora's `noopenh264` package from the regular Fedora repositories.
 
 The cross path prepares the AArch64 initramfs and runs RPM checks in AArch64
-containers. The long kernel compilation runs on the x86_64 host; each
-profile's `boot_a` kernel rebuild follows that platform too.
+containers. The long kernel compilation runs on the x86_64 host; the single
+`boot_a` kernel rebuild for the TTY pair follows that platform too.
 
 The cross build still needs a complete image build and tablet boot check
 before release use. Without `--cross-kernel`, a kernel cache miss compiles

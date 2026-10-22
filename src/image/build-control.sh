@@ -42,7 +42,7 @@ build_finish() {
     build_stage=$(jq -r .stage "$output/status.json")
     if ((code == 0 && build_completed == build_total)); then
         build_state=complete
-        build_stage='All image pairs complete'
+        build_stage='Requested image pairs complete'
     elif ((code == 0)); then
         build_state=failed
         build_stage='Build ended before all stages completed'
@@ -80,7 +80,7 @@ build_start() {
     export UKE_BUILD_RUN_ID
     build_started=$(date +%s)
     build_completed=0
-    build_total=21
+    build_total=${build_total:-21}
     build_state=running
     build_stage='Starting'
     : > "$output/progress.log"

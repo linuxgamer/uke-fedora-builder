@@ -1,8 +1,11 @@
 # Uke Fedora Builder
 
-Tools and recipes for building **Fedora Rawhide AArch64** images for POCO Pad X1 and Xiaomi Pad 7 (`uke`, Qualcomm SM7675).
+Tools and recipes for **Fedora 44 AArch64** release images for Xiaomi Pad 7
+(`uke`, Qualcomm SM7675). Older Rawhide development targets for POCO Pad X1
+and Xiaomi Pad 7 remain available.
 
-The builder creates filesystem and boot-image artifacts. It does not, by itself, prove that an image boots successfully on a tablet. Current test results come from POCO Pad X1 and not Xiaomi Pad 7
+The builder creates filesystem and boot-image artifacts. A completed build
+alone does not establish that an image boots on the tablet.
 
 ## Build targets
 
@@ -31,7 +34,17 @@ kernel build is already cached, the script reuses it either way; add
 See [Fedora 44 build cache](docs/FEDORA44-BUILD-CACHE.md) for details.
 
 The command creates separate TTY, KDE, GNOME, Phosh, and Plasma Mobile image
-pairs. In another terminal, inspect concise progress or stop the complete build:
+pairs by default. To build only selected profiles, pass a comma-separated list:
+
+```sh
+./uke-fedora-builder/build-fedora44-images.sh --cross-kernel \
+    --profiles kde,gnome --output build/fedora44-images-desktop
+```
+
+Desktop selections also prepare the TTY rootfs and boot pair they share. The
+output contains those TTY prerequisites as well as the requested profile pairs.
+With `--resume`, you can add more profiles to the same output directory later.
+In another terminal, inspect concise progress or stop the build:
 
 ```sh
 ./uke-fedora-builder/build-fedora44-images.sh --status --output build/fedora44-images
@@ -47,7 +60,10 @@ After interruption, restart with the same options and `--resume`:
 Completed RPMs and profile artifacts are reused only after their inputs and checksums
 pass validation. The full output is also saved to `build.log`; stage transitions
 are in `progress.log` and `status.json`. Rootfs phase timings are in each
-profile's `timing.tsv`.
+profile's `timing.tsv`. The builder caches its tool containers, copies the
+verified TTY rootfs as the base for desktop profiles, and reuses the TTY boot
+image for their separate image pairs. Fedora downloads use a tested mirror by
+default; see the build cache guide for the override.
 
 The older upstream development targets remain available below.
 

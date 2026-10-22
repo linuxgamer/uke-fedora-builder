@@ -8,6 +8,7 @@ usage() {
 Usage: ./build-fedora44-rootfs.sh --profile tty|kde|gnome|phosh|plasma-mobile \
        --kernel-rpms DIR --core-rpm FILE --hardware-rpms DIR \
        --output DIR [--touch-panel csot|tm] [--root-mib 4096]
+       [--base-rootfs VERIFIED_TTY_DIR]
 
 Compose a Fedora 44 AArch64 rootfs from Fedora packages and locally built
 Linux 7.2.11 and selected hardware RPMs. Requires Docker or Podman and
@@ -28,8 +29,11 @@ if [[ ${1:-} == --inside ]]; then
         printf '%s\t%s\n' "$1" "$((SECONDS - phase_start))" >> /workspace/timing.tsv
         phase_start=$SECONDS
     }
-    dnf -y --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True --setopt=install_weak_deps=False install \
-        tar zstd gcc-c++ e2fsprogs e2fsprogs-devel libselinux-devel systemd diffutils
+    if [[ -d /base-root ]]; then
+        [[ $(cat /workspace/PROFILE-ID) != tty ]] || die 'TTY cannot reuse itself as a base'
+        cp -a --reflink=auto /base-root/. "$root/"
+        phase_done shared-tty-base-copy
+    else
     dnf -y --use-host-config --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True --installroot="$root" --releasever=44 \
         --setopt=install_weak_deps=False --setopt=localpkg_gpgcheck=False install \
         fedora-release basesystem bash coreutils systemd systemd-udev \
@@ -75,6 +79,7 @@ if [[ ${1:-} == --inside ]]; then
              ($1 == "uke-ssc-fileservice" && $2 == "2026.09.21" && $3 ~ /^[1-9][0-9]*\.fc44$/ && $4 == "aarch64") ||
              ($1 == "uke-fedora44-oem-data" && $2 == "3.0.303.0" && $3 == "2.fc44" && $4 == "noarch") { good++ }
              END { exit good != 4 || NR != 4 }' || die 'Expected Fedora 44 SSC and OEM data RPMs'
+    fi
     systemctl --root="$root" enable uke-touchscreen.service uke-battery.service uke-wifi-factory.service uke-bluetooth-address.service
     install -Dm644 /builder/uke-ssc-fedora44.target "$root/usr/lib/systemd/system/uke-ssc-fedora44.target"
     systemctl --root="$root" enable uke-ssc-fedora44.target
@@ -116,6 +121,7 @@ if [[ ${1:-} == --inside ]]; then
                 --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True \
                 --installroot="$root" --releasever=44 --setopt=install_weak_deps=False \
                 install noopenh264 "${common[@]}" "${desktop[@]}"
+            systemctl --root="$root" disable getty@tty1.service
             session=$profile
             [[ $profile != kde ]] || session=plasma
             [[ $profile != gnome ]] || session=gnome
@@ -150,8 +156,10 @@ if [[ ${1:-} == --inside ]]; then
     # filesystem package stages the installroot directory as 0555.
     chmod 0755 "$root"
     local_contexts=$root/etc/selinux/targeted/contexts/files/file_contexts.local
-    [[ -f $local_contexts && ! -s $local_contexts ]] || die 'Unexpected local SELinux file contexts'
-    printf '%s\n' '/mnt/vendor/persist -d system_u:object_r:mnt_t:s0' > "$local_contexts"
+    expected_context='/mnt/vendor/persist -d system_u:object_r:mnt_t:s0'
+    [[ -f $local_contexts ]] || die 'Missing local SELinux file contexts'
+    [[ ! -s $local_contexts || $(cat "$local_contexts") == "$expected_context" ]] || die 'Unexpected local SELinux file contexts'
+    printf '%s\n' "$expected_context" > "$local_contexts"
     truncate -s "$((root_mib * 1024 * 1024))" /workspace/userdata.raw.img
     mkfs.ext4 -q -F -b 4096 -L UKE_LINUX -m 0 \
         -E lazy_itable_init=0,lazy_journal_init=0 -d "$root" /workspace/userdata.raw.img
@@ -182,13 +190,13 @@ if [[ ${1:-} == --inside ]]; then
     exit 0
 fi
 
-profile='' rpms='' core_rpm='' hardware_rpms='' output='' panel=csot root_mib=4096
+profile='' rpms='' core_rpm='' hardware_rpms='' output='' base_rootfs='' panel=csot root_mib=4096
 blobs=$here/../uke-linux-hardware-support/xiaomi-uke-firmware/payload/oem-os3.0.303.0
 while (($#)); do
     case $1 in
-        --profile|--kernel-rpms|--core-rpm|--hardware-rpms|--touch-panel|--output|--root-mib)
+        --profile|--kernel-rpms|--core-rpm|--hardware-rpms|--base-rootfs|--touch-panel|--output|--root-mib)
             (($# >= 2)) || die "Missing value for $1"
-            case $1 in --profile) profile=$2;; --kernel-rpms) rpms=$2;; --core-rpm) core_rpm=$2;; --hardware-rpms) hardware_rpms=$2;; --touch-panel) panel=$2;; --output) output=$2;; --root-mib) root_mib=$2;; esac
+            case $1 in --profile) profile=$2;; --kernel-rpms) rpms=$2;; --core-rpm) core_rpm=$2;; --hardware-rpms) hardware_rpms=$2;; --base-rootfs) base_rootfs=$2;; --touch-panel) panel=$2;; --output) output=$2;; --root-mib) root_mib=$2;; esac
             shift 2;;
         --help|-h) usage; exit 0;;
         *) die "Unknown argument: $1";;
@@ -208,6 +216,12 @@ rpms=$(realpath -- "$rpms")
 core_rpm=$(realpath -- "$core_rpm")
 hardware_rpms=$(realpath -- "$hardware_rpms")
 blobs=$(realpath -- "$blobs")
+if [[ -n $base_rootfs ]]; then
+    [[ $profile != tty ]] || die 'TTY rootfs cannot have a TTY base'
+    base_rootfs=$(realpath -- "$base_rootfs")
+    [[ -d $base_rootfs/root && -s $base_rootfs/SHA256SUMS && $(cat "$base_rootfs/PROFILE-ID") == tty ]] || die 'Incomplete TTY base rootfs'
+    (cd "$base_rootfs" && sha256sum -c --status SHA256SUMS) || die 'TTY base rootfs checksums failed'
+fi
 output=$(realpath -m -- "$output")
 for part in core modules dtbs; do
     mapfile -t matches < <(find "$rpms" -maxdepth 1 -type f -name "senemos-uke-linux-kernel-mainline-$part-7.2.11-*.fc44.aarch64.rpm" -print)
@@ -246,11 +260,20 @@ sha256sum "$rpms"/senemos-uke-linux-kernel-mainline-{core,modules,dtbs}-7.2.11-"
 printf '%s  %s\n' "$(sha256sum "$core_rpm" | cut -d ' ' -f1)" "$(basename -- "$core_rpm")" > "$output/CORE-RPM.sha256"
 sha256sum "${hardware_files[@]}" | sed "s|$hardware_rpms/||" > "$output/HARDWARE-RPMS.sha256"
 sha256sum "$blobs/touch/$panel/normal.bin" "$blobs/touch/$panel/config.ini" "$blobs/touch/reference.bin" | sed "s|$blobs/||" > "$output/LOCAL-BLOBS.sha256"
+if [[ -n $base_rootfs ]]; then
+    for receipt in KERNEL-RPMS.sha256 CORE-RPM.sha256 HARDWARE-RPMS.sha256 LOCAL-BLOBS.sha256 TOUCH-PANEL; do
+        cmp "$base_rootfs/$receipt" "$output/$receipt" || die "TTY base input differs: $receipt"
+    done
+fi
 run_label=()
 [[ -z ${UKE_BUILD_RUN_ID:-} ]] || run_label=(--label "org.uke-fedora.build-run=$UKE_BUILD_RUN_ID")
+arm_image=$("$here/src/image/ensure-build-image.sh" "$container" linux/arm64)
+base_mount=()
+[[ -z $base_rootfs ]] || base_mount=(-v "$base_rootfs/root:/base-root:ro")
 "$container" run --rm --network=host --platform linux/arm64 --security-opt label=disable \
     "${run_label[@]}" \
     -v "$cache_dir:/build-cache" \
+    "${base_mount[@]}" \
     -v "$output:/workspace" -v "$rpms:/kernel-rpms:ro" \
     -v "$hardware_rpms:/hardware-rpms:ro" \
     -v "$blobs:/local-blobs:ro" \
@@ -262,5 +285,5 @@ run_label=()
     -v "$here/configs/firstboot/uke-create-user.service:/builder/uke-create-user.service:ro" \
     -v "$here/configs/images/uke-persist.fstab:/builder/uke-persist.fstab:ro" \
     -v "$here/configs/images/uke-ssc-fedora44.target:/builder/uke-ssc-fedora44.target:ro" \
-    registry.fedoraproject.org/fedora:44 bash /builder.sh --inside
+    "$arm_image" bash /builder.sh --inside
 printf 'Rootfs artifacts: %s/rootfs.tar.zst and %s/userdata.img\n' "$output" "$output"

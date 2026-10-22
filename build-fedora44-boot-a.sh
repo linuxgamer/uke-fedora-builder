@@ -19,14 +19,10 @@ HELP
 if [[ ${1:-} == --inside ]]; then
     [[ $# == 1 && -d /kernel-source && -d /kernel-out && -d /workspace ]] || die 'Invalid container invocation'
     case $(cat /workspace/BUILD-PLATFORM) in
-        linux/arm64) dnf_cache=dnf; ccache_cache=ccache;;
-        linux/amd64) dnf_cache=dnf-x86_64; ccache_cache=ccache-cross;;
+        linux/arm64) ccache_cache=ccache;;
+        linux/amd64) ccache_cache=ccache-cross;;
         *) die 'Unknown kernel build platform';;
     esac
-    dnf -y --setopt="system_cachedir=/build-cache/$dnf_cache" --setopt=keepcache=True --setopt=install_weak_deps=False install \
-        bc bison clang compiler-rt cpio elfutils-libelf-devel flex gcc gcc-c++ \
-        gzip llvm lld make ncurses-devel openssl-devel perl python3 rsync \
-        zstd dtc kmod findutils diffutils ccache
     original=/kernel-out
     output=/workspace/kernel-out
     [[ -s $original/.config && -s $original/boot-initramfs.cpio.gz && -s $original/Module.symvers ]] || die 'Incomplete native kernel output'
@@ -149,12 +145,13 @@ printf '%s\n' "$jobs" > "$output/JOBS"
 printf '%s\n' "$build_platform" > "$output/BUILD-PLATFORM"
 run_label=()
 [[ -z ${UKE_BUILD_RUN_ID:-} ]] || run_label=(--label "org.uke-fedora.build-run=$UKE_BUILD_RUN_ID")
+build_image=$("$here/src/image/ensure-build-image.sh" "$container" "$build_platform")
 "$container" run --rm --network=host --platform "$build_platform" --security-opt label=disable \
     "${run_label[@]}" \
     -v "$source:/kernel-source:ro" -v "$kernel_out:/kernel-out:ro" -v "$output:/workspace" \
     -v "$cache_dir:/build-cache" \
     -v "$here/build-fedora44-boot-a.sh:/builder.sh:ro" \
-    registry.fedoraproject.org/fedora:44 bash /builder.sh --inside
+    "$build_image" bash /builder.sh --inside
 g++ -std=c++20 -O2 -Wall -Wextra -Werror "$here/src/boot/boot-image.cpp" -o "$output/boot-image"
 "$output/boot-image" inspect "$stock" > "$output/stock-header.json"
 jq -e '.header_version==4 and .ramdisk_bytes==0 and .signature_bytes==0 and .image_bytes==100663296' "$output/stock-header.json" >/dev/null || die 'Unexpected OEM boot v4 template'
