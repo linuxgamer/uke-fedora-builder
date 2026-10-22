@@ -166,10 +166,12 @@ truncate -s "$(jq -er .payload_end "$output/boot-header.json")" "$output/fedora_
 avbtool add_hash_footer --image "$output/fedora_boot.img.part" --partition_name boot \
     --partition_size 100663296 --algorithm NONE --salt "$stock_hash" \
     --rollback_index "$rollback" "${stock_props[@]}"
-avbtool verify_image --image "$output/fedora_boot.img.part" || die 'AVB footer verification failed'
-"$output/boot-image" inspect "$output/fedora_boot.img.part" > "$output/boot-header.json"
+# avbtool resolves the boot descriptor against boot.img next to the image.
+mv "$output/fedora_boot.img.part" "$output/boot.img"
+avbtool verify_image --image "$output/boot.img" || die 'AVB footer verification failed'
+"$output/boot-image" inspect "$output/boot.img" > "$output/boot-header.json"
 jq -e '.avb_footer_present==true and .image_bytes==100663296 and .payload_end<.image_bytes' "$output/boot-header.json" >/dev/null || die 'Final boot image lacks a bounded AVB footer'
-mv "$output/fedora_boot.img.part" "$output/fedora_boot.img"
+mv "$output/boot.img" "$output/fedora_boot.img"
 cp --reflink=auto "$rootfs/userdata.img" "$output/userdata.img"
 cp "$rootfs/PROFILE-ID" "$rootfs/TOUCH-PANEL" "$rootfs/LOCAL-BLOBS.sha256" "$output/"
 jq -n --arg profile "$(cat "$rootfs/PROFILE-ID")" --arg release "$release" \
