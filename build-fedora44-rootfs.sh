@@ -30,14 +30,60 @@ if [[ ${1:-} == --inside ]]; then
         printf '%s\t%s\n' "$1" "$((SECONDS - phase_start))" >> /workspace/timing.tsv
         phase_start=$SECONDS
     }
+    cached_ca_rpm=/build-cache/dnf/ca-certificates-2026.2.92_v9.0.319-1.fc44.noarch.rpm
+    cached_ca_hash=3d5881b39c123857cbf1283305bca2e1717f5748559ca753944a079c8c147dab
+    ensure_cached_ca_rpm() {
+        local part=$cached_ca_rpm.part
+        if [[ ! -s $cached_ca_rpm || $(sha256sum "$cached_ca_rpm" | cut -d' ' -f1) != "$cached_ca_hash" ]]; then
+            curl -fLsS --retry 3 --connect-timeout 20 \
+                'https://kojipkgs.fedoraproject.org/packages/ca-certificates/2026.2.92_v9.0.319/1.fc44/noarch/ca-certificates-2026.2.92_v9.0.319-1.fc44.noarch.rpm' \
+                -o "$part"
+            [[ $(sha256sum "$part" | cut -d' ' -f1) == "$cached_ca_hash" ]] || die 'Fedora Koji CA package checksum mismatch'
+            mv -f -- "$part" "$cached_ca_rpm"
+        fi
+        [[ $(rpm -qp --qf '%{NAME} %{VERSION} %{RELEASE} %{ARCH}' "$cached_ca_rpm") == \
+            'ca-certificates 2026.2.92_v9.0.319 1.fc44 noarch' ]] || die 'Unexpected Fedora Koji CA package'
+    }
+    dnf_install_with_download_retry() {
+        local attempt log refresh_metadata=0
+        local -a invocation
+        local -a local_rpms=()
+        log=$(mktemp /workspace/.dnf-download.XXXXXXXX)
+        for attempt in 1 2 3; do
+            : > "$log"
+            if ((refresh_metadata)); then
+                invocation=(dnf --refresh "$@" "${local_rpms[@]}")
+            else
+                invocation=(dnf "$@" "${local_rpms[@]}")
+            fi
+            if "${invocation[@]}" 2>&1 | tee "$log"; then
+                rm -f -- "$log"
+                return 0
+            fi
+            if ((attempt == 3)) || ! grep -Eq 'Failed to download packages|Failed to download metadata|Librepo error: Cannot download|Curl error' "$log"; then
+                rm -f -- "$log"
+                return 1
+            fi
+            if grep -Fq 'Cannot download Packages/c/ca-certificates-2026.2.92_v9.0.319-1.fc44.noarch.rpm' "$log"; then
+                ensure_cached_ca_rpm
+                local_rpms=("$cached_ca_rpm")
+                printf 'Fedora mirror lacks the advertised CA RPM; using its pinned Koji build\n' >&2
+            else
+                printf 'Fedora download failed; refreshing metadata before retry (%s/3)\n' "$((attempt + 1))" >&2
+                dnf -y --setopt=system_cachedir=/build-cache/dnf clean metadata >/dev/null
+                refresh_metadata=1
+            fi
+            sleep "$((attempt * 3))"
+        done
+    }
     if [[ -d /base-root ]]; then
         [[ $(cat /workspace/PROFILE-ID) != tty ]] || die 'TTY cannot reuse itself as a base'
         cp -a --reflink=auto /base-root/. "$root/"
         phase_done shared-tty-base-copy
     else
-    dnf -y --use-host-config --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True --installroot="$root" --releasever=44 \
+    dnf_install_with_download_retry -y --use-host-config --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True --installroot="$root" --releasever=44 \
         --setopt=install_weak_deps=False --setopt=localpkg_gpgcheck=False install \
-        fedora-release basesystem bash coreutils systemd systemd-udev \
+        fedora-release basesystem bash coreutils systemd systemd-pam systemd-udev \
         NetworkManager dnf5 sudo shadow-utils util-linux kmod python3 \
         e2fsprogs selinux-policy-targeted \
         /kernel-rpms/senemos-uke-linux-kernel-mainline-core-*.rpm \
@@ -54,7 +100,7 @@ if [[ ${1:-} == --inside ]]; then
     kernel_release=$(rpm --root "$root" -q --qf '%{VERSION}-%{RELEASE}\n' senemos-uke-linux-kernel-mainline-core)
     [[ -d $root/usr/lib/modules/${kernel_release%.fc44} ]] || die 'Kernel module directory is absent'
     [[ $(rpm --root "$root" -q --qf '%{VERSION} %{RELEASE} %{ARCH}' uke-core-meta) == '1.0.4 1.fc44 aarch64' ]] || die 'Expected Fedora 44 Uke Core RPM'
-    dnf -y --use-host-config --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True --installroot="$root" --releasever=44 \
+    dnf_install_with_download_retry -y --use-host-config --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True --installroot="$root" --releasever=44 \
         --setopt=install_weak_deps=False --setopt=localpkg_gpgcheck=False install \
         /hardware-rpms/uke-touchscreen-0.1.0-*.fc44.aarch64.rpm \
         /hardware-rpms/uke-battery-observer-1.1.0-*.fc44.aarch64.rpm \
@@ -62,11 +108,11 @@ if [[ ${1:-} == --inside ]]; then
         /hardware-rpms/libssc-0.4.4-*.fc44.aarch64.rpm \
         /hardware-rpms/iio-sensor-proxy-3.9-*.fc44.aarch64.rpm \
         /hardware-rpms/uke-ssc-fileservice-2026.09.21-*.fc44.aarch64.rpm \
-        /hardware-rpms/uke-fedora44-oem-data-3.0.304.0-1.fc44.noarch.rpm
+        /hardware-rpms/uke-fedora44-oem-data-3.0.304.0-2.fc44.noarch.rpm
     phase_done hardware-packages
     rpm --root "$root" -q --qf '%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n' \
         uke-touchscreen uke-battery-observer uke-boot-integration | \
-        awk '($1 == "uke-touchscreen" && $2 == "0.1.0" && $3 == "13.fc44" && $4 == "aarch64") ||
+        awk '($1 == "uke-touchscreen" && $2 == "0.1.0" && $3 == "15.fc44" && $4 == "aarch64") ||
              ($1 == "uke-battery-observer" && $2 == "1.1.0" && $3 == "1.fc44" && $4 == "aarch64") ||
              ($1 == "uke-boot-integration" && $2 == "1.5.2" && $3 == "1.fc44" && $4 == "aarch64") { good++ }
              END { exit good != 3 || NR != 3 }' || die 'Expected three selected Fedora 44 hardware RPMs'
@@ -75,7 +121,7 @@ if [[ ${1:-} == --inside ]]; then
         awk '($1 == "libssc" && $2 == "0.4.4" && $3 ~ /^[1-9][0-9]*\.fc44$/ && $4 == "aarch64") ||
              ($1 == "iio-sensor-proxy" && $2 == "3.9" && $3 ~ /^[1-9][0-9]*\.fc44$/ && $4 == "aarch64") ||
              ($1 == "uke-ssc-fileservice" && $2 == "2026.09.21" && $3 ~ /^[1-9][0-9]*\.fc44$/ && $4 == "aarch64") ||
-             ($1 == "uke-fedora44-oem-data" && $2 == "3.0.304.0" && $3 == "1.fc44" && $4 == "noarch") { good++ }
+             ($1 == "uke-fedora44-oem-data" && $2 == "3.0.304.0" && $3 == "2.fc44" && $4 == "noarch") { good++ }
              END { exit good != 4 || NR != 4 }' || die 'Expected Fedora 44 SSC and OEM data RPMs'
     fi
     systemctl --root="$root" enable uke-touchscreen.service uke-battery.service uke-wifi-factory.service uke-bluetooth-address.service
@@ -93,6 +139,13 @@ if [[ ${1:-} == --inside ]]; then
     profile=$(cat /workspace/PROFILE-ID)
     case $profile in
         tty)
+            dnf_install_with_download_retry -y --use-host-config --setopt=system_cachedir=/build-cache/dnf \
+                --setopt=keepcache=True --installroot="$root" --releasever=44 \
+                --setopt=install_weak_deps=False --setopt=localpkg_gpgcheck=False \
+                install /hardware-rpms/uke-console-input-3.6.0-*.fc44.aarch64.rpm
+            [[ -x $root/usr/bin/buffyboard && -s $root/usr/lib/systemd/system/uke-console-input.service ]] \
+                || die 'TTY touch keyboard package is incomplete'
+            systemctl --root="$root" enable uke-console-input.service
             install -Dm755 /builder/uke-create-user "$root/usr/libexec/uke-create-user"
             install -Dm644 /builder/uke-create-user.service "$root/usr/lib/systemd/system/uke-create-user.service"
             systemctl --root="$root" enable uke-create-user.service
@@ -102,10 +155,15 @@ if [[ ${1:-} == --inside ]]; then
         kde|gnome|phosh|plasma-mobile)
             # Desktop profiles copy the verified TTY root as their common base.
             # Remove its console-only first-boot unit before enabling the GUI.
+            systemctl --root="$root" disable uke-console-input.service
+            dnf -y --use-host-config --setopt=system_cachedir=/build-cache/dnf \
+                --setopt=keepcache=True --installroot="$root" --releasever=44 \
+                --setopt=clean_requirements_on_remove=False remove uke-console-input
+            rpm --root "$root" -q uke-console-input >/dev/null 2>&1 && die 'TTY keyboard remained in GUI rootfs'
             systemctl --root="$root" disable uke-create-user.service
             rm -f "$root/usr/lib/systemd/system/uke-create-user.service" \
                 "$root/usr/libexec/uke-create-user"
-            common=(NetworkManager-wifi bluez mesa-dri-drivers pipewire wireplumber
+            common=(NetworkManager-wifi bluez dbus-daemon mesa-dri-drivers pipewire wireplumber
                     polkit udisks2 xorg-x11-server-Xwayland)
             case $profile in
                 kde) desktop=(plasma-desktop plasma-workspace kwin sddm plasma-setup
@@ -121,8 +179,9 @@ if [[ ${1:-} == --inside ]]; then
                                          plasma-settings plasma-nm plasma-keyboard
                                          plasma-pa powerdevil); display=sddm ;;
             esac
-            dnf -y --use-host-config --disable-repo=fedora-cisco-openh264 \
+            dnf_install_with_download_retry -y --use-host-config --disable-repo=fedora-cisco-openh264 \
                 --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True \
+                --setopt=max_parallel_downloads=2 \
                 --installroot="$root" --releasever=44 --setopt=install_weak_deps=False \
                 install noopenh264 "${common[@]}" "${desktop[@]}"
             if [[ $display == sddm ]]; then
@@ -158,7 +217,7 @@ if [[ ${1:-} == --inside ]]; then
         *) die 'Invalid profile in workspace' ;;
     esac
     phase_done profile-packages-and-configuration
-    for forbidden in senemos-uke-linux-kernel-mainline senemos-uke-linux-kernel-mainline-boot uke-kernel-update uke-charge-control uke-offline-charge uke-boot-integration; do
+    for forbidden in senemos-uke-linux-kernel-mainline senemos-uke-linux-kernel-mainline-boot uke-kernel-update uke-charge-control uke-offline-charge uke-boot-recovery uke-cdc-debug; do
         if rpm --root "$root" -q "$forbidden" >/dev/null 2>&1; then
             die "Forbidden boot or charging package in userdata image: $forbidden"
         fi
@@ -177,46 +236,10 @@ if [[ ${1:-} == --inside ]]; then
     rm -f "$root/etc/ssh"/ssh_host_*
     rpm --root "$root" -qa --qf '%{NAME}\t%{EPOCHNUM}\t%{VERSION}\t%{RELEASE}\t%{ARCH}\n' | \
         LC_ALL=C sort > /workspace/packages.tsv
-    root_mib=$(cat /workspace/ROOT-MIB)
-    # mkfs.ext4 -d creates the root inode as 0755 even when Fedora's
-    # filesystem package stages the installroot directory as 0555.
-    chmod 0755 "$root"
-    local_contexts=$root/etc/selinux/targeted/contexts/files/file_contexts.local
-    expected_context='/mnt/vendor/persist -d system_u:object_r:mnt_t:s0'
-    [[ -f $local_contexts ]] || die 'Missing local SELinux file contexts'
-    [[ ! -s $local_contexts || $(cat "$local_contexts") == "$expected_context" ]] || die 'Unexpected local SELinux file contexts'
-    printf '%s\n' "$expected_context" > "$local_contexts"
-    truncate -s "$((root_mib * 1024 * 1024))" /workspace/userdata.raw.img
-    mkfs.ext4 -q -F -b 4096 -L UKE_LINUX -m 0 \
-        -E lazy_itable_init=0,lazy_journal_init=0 -d "$root" /workspace/userdata.raw.img
-    phase_done ext4-population
-    g++ -std=c++20 -O2 -Wall -Wextra -Werror /builder/ext4-labels.cpp \
-        -o /workspace/ext4-labels -lext2fs -lcom_err -lselinux
-    contexts=$root/etc/selinux/targeted/contexts/files/file_contexts
-    [[ -s $contexts ]] || die 'Fedora SELinux file contexts are missing'
-    /workspace/ext4-labels apply /workspace/userdata.raw.img "$root" "$contexts"
-    /workspace/ext4-labels verify /workspace/userdata.raw.img "$root" "$contexts"
-    e2fsck -fn /workspace/userdata.raw.img >/workspace/ext4-check.txt
-    phase_done labeling-and-fsck
-    g++ -std=c++20 -O2 -Wall -Wextra -Werror /builder/android-sparse.cpp -o /workspace/android-sparse
-    /workspace/android-sparse encode /workspace/userdata.raw.img /workspace/userdata.img
-    /workspace/android-sparse decode /workspace/userdata.img /workspace/userdata.readback.img
-    cmp /workspace/userdata.raw.img /workspace/userdata.readback.img
-    phase_done sparse-roundtrip
-    rm /workspace/userdata.readback.img /workspace/ext4-labels /workspace/android-sparse
-    (cd "$root"; tar --numeric-owner --xattrs --acls -cpf - .) | zstd -T2 -3 -o /workspace/rootfs.tar.zst
-    phase_done rootfs-archive
-    sha256sum /workspace/rootfs.tar.zst /workspace/userdata.raw.img \
-        /workspace/userdata.img /workspace/packages.tsv /workspace/PROFILE \
-        /workspace/PROFILE-ID /workspace/ROOT-MIB \
-        /workspace/KERNEL-RPMS.sha256 /workspace/CORE-RPM.sha256 \
-        /workspace/HARDWARE-RPMS.sha256 /workspace/LOCAL-BLOBS.sha256 \
-        /workspace/TOUCH-PANEL /workspace/timing.tsv | \
-        sed 's|/workspace/||' > /workspace/SHA256SUMS
     exit 0
 fi
 
-profile='' rpms='' core_rpm='' hardware_rpms='' output='' base_rootfs='' panel=csot root_mib=4096
+profile='' rpms='' core_rpm='' hardware_rpms='' output='' base_rootfs='' panel=tm root_mib=4096
 blobs=$here/../uke-linux-hardware-support/xiaomi-uke-firmware/payload/oem-os3.0.304.0
 while (($#)); do
     case $1 in
@@ -258,7 +281,7 @@ for part in core modules dtbs; do
     else [[ $kernel_rpm_release == "${BASH_REMATCH[1]}" ]] || die 'Kernel RPM releases differ'; fi
 done
 hardware_files=()
-for entry in 'uke-touchscreen:0.1.0' 'uke-battery-observer:1.1.0' 'uke-boot-integration:1.5.2'; do
+for entry in 'uke-touchscreen:0.1.0' 'uke-console-input:3.6.0' 'uke-battery-observer:1.1.0' 'uke-boot-integration:1.5.2'; do
     IFS=: read -r package version <<< "$entry"
     mapfile -t matches < <(find "$hardware_rpms" -maxdepth 1 -type f -name "$package-$version-*.fc44.aarch64.rpm" -print)
     ((${#matches[@]} == 1)) || die "Expected one Fedora 44 $package RPM in $hardware_rpms"
@@ -271,8 +294,8 @@ for entry in 'libssc:0.4.4:aarch64' 'iio-sensor-proxy:3.9:aarch64' \
     ((${#matches[@]} == 1)) || die "Expected one Fedora 44 $package RPM in $hardware_rpms"
     hardware_files+=("${matches[0]}")
 done
-[[ -f $hardware_rpms/uke-fedora44-oem-data-3.0.304.0-1.fc44.noarch.rpm ]] || die 'Expected Fedora 44 OEM data RPM release 1'
-hardware_files+=("$hardware_rpms/uke-fedora44-oem-data-3.0.304.0-1.fc44.noarch.rpm")
+[[ -f $hardware_rpms/uke-fedora44-oem-data-3.0.304.0-2.fc44.noarch.rpm ]] || die 'Expected Fedora 44 OEM data RPM release 2'
+hardware_files+=("$hardware_rpms/uke-fedora44-oem-data-3.0.304.0-2.fc44.noarch.rpm")
 [[ ! -e $output ]] || die 'Output path already exists; select a new directory'
 mkdir -p "$output"
 cache_dir=$here/build/cache
@@ -313,4 +336,15 @@ base_mount=()
     -v "$here/configs/images/uke-persist.fstab:/builder/uke-persist.fstab:ro" \
     -v "$here/configs/images/uke-ssc-fedora44.target:/builder/uke-ssc-fedora44.target:ro" \
     "$arm_image" bash /builder.sh --inside
+hwdb_image=$(bash "$here/src/image/ensure-hwdb-image.sh" "$container")
+"$container" run --rm --network=none --security-opt label=disable \
+    "${run_label[@]}" -v "$output:/workspace" "$hwdb_image" \
+    systemd-hwdb --root=/workspace/root update
+"$container" run --rm --network=none --security-opt label=disable \
+    "${run_label[@]}" -v "$output:/workspace" \
+    -v "$here/src/image/finalize-fedora44-rootfs.sh:/builder/finalize.sh:ro" \
+    -v "$here/src/image/ext4-labels.cpp:/builder/ext4-labels.cpp:ro" \
+    -v "$here/src/boot-pair/android-sparse.cpp:/builder/android-sparse.cpp:ro" \
+    "$hwdb_image" bash /builder/finalize.sh
+bash "$here/src/image/audit-fedora44-rootfs.sh" "$output"
 printf 'Rootfs artifacts: %s/rootfs.tar.zst and %s/userdata.img\n' "$output" "$output"

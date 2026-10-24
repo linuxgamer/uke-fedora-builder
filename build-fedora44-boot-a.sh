@@ -51,13 +51,19 @@ if [[ ${1:-} == --inside ]]; then
     mapfile -d '' -t cmdline_files < <(find "$cmdline_dir" -type f -print0)
     ((${#cmdline_files[@]} > 0)) || die 'No initramfs command-line files'
     grep -lF 'root=PARTLABEL=linux' "${cmdline_files[@]}" >/dev/null || die 'Original initramfs root selector missing'
-    sed -i 's/root=PARTLABEL=linux/root=PARTLABEL=userdata/g' "${cmdline_files[@]}"
+    sed -i -e 's/root=PARTLABEL=linux/root=PARTLABEL=userdata/g' \
+        -e 's/ systemd\.unit=multi-user\.target//g' "${cmdline_files[@]}"
     if grep -rF 'root=PARTLABEL=linux' "$cmdline_dir"; then die 'Old initramfs selector survived'; fi
+    if grep -rF 'systemd.unit=multi-user.target' "$cmdline_dir"; then die 'Forced console target survived in initramfs'; fi
     find /workspace/initramfs-root -exec touch -h -d '@1791725270' {} +
     (cd /workspace/initramfs-root; find . -print0 | LC_ALL=C sort -z | cpio --null --quiet --reproducible --owner=0:0 -o -H newc) | gzip -n -9 > /workspace/boot-initramfs.cpio.gz
     original_cmdline=$(sed -n 's/^CONFIG_CMDLINE="\(.*\)"$/\1/p' "$original/.config")
     [[ $original_cmdline == *'root=PARTLABEL=linux '* ]] || die 'Unexpected original kernel command line'
     new_cmdline=${original_cmdline/root=PARTLABEL=linux/root=PARTLABEL=userdata}
+    # A shared boot image must honor each rootfs default.target. Otherwise GUI
+    # images stay at multi-user.target without a display manager or tty1 getty.
+    new_cmdline=${new_cmdline/ systemd.unit=multi-user.target/}
+    [[ " $new_cmdline " != *' systemd.unit='* ]] || die 'Forced host target survived in boot command line'
     cp "$original/.config" "$output/.config"
     /kernel-source/scripts/config --file "$output/.config" \
         --set-str CMDLINE "$new_cmdline" \

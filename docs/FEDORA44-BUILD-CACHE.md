@@ -44,9 +44,18 @@ compilations in `ccache/` and `ccache-cross/`. Kernel source archives remain in
 the kernel component's `source-cache/` cache. The exact tool image IDs are part
 of each profile's input receipt. These paths are ignored by Git.
 
+A native Fedora 44 tool image builds `hwdb.bin` after package installation,
+then creates, labels, checks, converts and archives each ext4 rootfs. This
+avoids AArch64 emulation for the filesystem work. The rootfs audit rejects
+the 105-byte database that DNF's emulated systemd trigger could leave behind.
+Changes to image recipes invalidate finished profile receipts; changes only
+to audit scripts do not. Matching RPMs remain cached.
+
 The TTY rootfs is built first. KDE, GNOME, Phosh and Plasma Mobile copy its
 verified Fedora, kernel and hardware package tree, then install their own
-desktop packages. A changed local RPM or builder input invalidates the
+desktop packages. The experimental console keyboard is installed only in the
+TTY image; desktop composition removes its package and service from the copied
+base. A changed local RPM or builder input invalidates the
 finished profile cache; the copy also checks the TTY package and OEM receipts.
 The four desktop pairs reuse the verified TTY boot image because the boot
 kernel and initramfs do not depend on the desktop profile. Each pair still has
@@ -60,6 +69,9 @@ default. To use another Fedora mirror, set `UKE_FEDORA_MIRROR` to its HTTPS
 `fedora/linux` root before running the build. The builder keeps Fedora's RPM
 signature checks. Changing the mirror creates new tool images and invalidates
 the profile receipts.
+Package installation retries transient download errors up to three
+times while retaining the RPM cache. Dependency or scriptlet errors still stop
+the build immediately.
 The Cisco openh264 repository is disabled in the tool images; desktop profiles
 install Fedora's `noopenh264` package from the regular Fedora repositories.
 
@@ -81,6 +93,14 @@ For an interrupted run, keep the same output directory and add `--resume`:
 The script checks completed profile artifacts before reusing them. A new run
 without `--resume` requires a new output directory. The builder never writes
 to a tablet; a successful build does not establish that an image boots on one.
+
+To rerun the current audit on a completed output without rebuilding anything,
+use the original profile list:
+
+```sh
+./uke-fedora-builder/build-fedora44-images.sh \
+    --audit-only --profiles kde --output build/fedora44-kde-tm-fix
+```
 
 An interrupted kernel build has no completed RPM cache entry. On the next run,
 the builder moves its partial kernel output and initramfs base into a
