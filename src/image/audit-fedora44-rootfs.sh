@@ -69,6 +69,9 @@ case $profile in
            ! -L $root/etc/systemd/system/multi-user.target.wants/uke-console-input.service ]] \
             || fail 'TTY keyboard leaked into GUI rootfs'
         [[ -x $root/usr/libexec/plasma-setup-bootutil ]] || fail 'Plasma first-boot setup is missing'
+        [[ -s $root/usr/share/sddm/themes/01-breeze-fedora/Main.qml &&
+           -s $root/usr/share/sddm/themes/01-breeze-fedora/KeyboardButton.qml ]] \
+            || fail 'SDDM theme or on-screen keyboard button is missing'
         [[ -x $root/usr/bin/dbus-run-session ]] || fail 'Plasma session D-Bus launcher is missing'
         [[ -s $root/usr/share/wayland-sessions/${profile/kde/plasma}.desktop ]] || fail 'Plasma Wayland session is missing'
         ;;

@@ -166,7 +166,7 @@ if [[ ${1:-} == --inside ]]; then
             common=(NetworkManager-wifi bluez dbus-daemon mesa-dri-drivers pipewire wireplumber
                     polkit udisks2 xorg-x11-server-Xwayland)
             case $profile in
-                kde) desktop=(plasma-desktop plasma-workspace kwin sddm plasma-setup
+                kde) desktop=(plasma-desktop plasma-workspace kwin sddm sddm-breeze plasma-setup
                               sddm-wayland-plasma konsole dolphin plasma-nm
                               plasma-keyboard plasma-systemsettings plasma-pa
                               powerdevil); display=sddm ;;
@@ -175,7 +175,7 @@ if [[ ${1:-} == --inside ]]; then
                 phosh) desktop=(phosh phoc gdm gnome-initial-setup gnome-shell
                                 gnome-session-wayland-session gnome-settings-daemon phosh-mobile-settings
                                 stevia-phosh-osk-provider gnome-control-center); display=gdm ;;
-                plasma-mobile) desktop=(plasma-mobile plasma-workspace kwin sddm plasma-setup
+                plasma-mobile) desktop=(plasma-mobile plasma-workspace kwin sddm sddm-breeze plasma-setup
                                          plasma-settings plasma-nm plasma-keyboard
                                          plasma-pa powerdevil); display=sddm ;;
             esac
