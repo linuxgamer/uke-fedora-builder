@@ -8,11 +8,13 @@ usage() {
     cat <<'HELP'
 Usage: ./build-fedora44-boot-a.sh --rootfs DIR --kernel-source DIR \
        --kernel-out DIR --stock-boot FILE --output NEW_DIR [--jobs N]
+       [--native-o82-36]
 
 Rebuild the RPM kernel Image with a userdata initramfs, then pack an OEM-derived
 Android v4 boot_a image with an unsigned AVB hash footer. Requires the prepared
 Linux 7.2.11 RPM source/output and a reviewed OEM boot.img. Uses Docker or
 Podman for the AArch64 kernel build; neither mode writes a device.
+--native-o82-36 enables an experimental 60 Hz DPU/DSI path for O82-36 panels.
 HELP
 }
 
@@ -63,6 +65,9 @@ if [[ ${1:-} == --inside ]]; then
     # A shared boot image must honor each rootfs default.target. Otherwise GUI
     # images stay at multi-user.target without a display manager or tty1 getty.
     new_cmdline=${new_cmdline/ systemd.unit=multi-user.target/}
+    if [[ $(cat /workspace/NATIVE-O82-36) == 1 ]]; then
+        new_cmdline+=' uke.native_o82_36=1'
+    fi
     [[ " $new_cmdline " != *' systemd.unit='* ]] || die 'Forced host target survived in boot command line'
     cp "$original/.config" "$output/.config"
     /kernel-source/scripts/config --file "$output/.config" \
@@ -89,7 +94,7 @@ if [[ ${1:-} == --inside ]]; then
     exit 0
 fi
 
-rootfs='' source='' kernel_out='' stock='' output='' jobs=4
+rootfs='' source='' kernel_out='' stock='' output='' jobs=4 native_o82_36=0
 while (($#)); do
     case $1 in
         --rootfs|--kernel-source|--kernel-out|--stock-boot|--output|--jobs)
@@ -100,6 +105,7 @@ while (($#)); do
             esac
             shift 2;;
         --help|-h) usage; exit 0;;
+        --native-o82-36) native_o82_36=1; shift;;
         *) die "Unknown argument: $1";;
     esac
 done
@@ -148,6 +154,7 @@ fi
 trap 'printf "fedora44-boot-a: incomplete output retained at %s\n" "$output" >&2' ERR
 printf '%s\n' "$release" > "$output/KERNEL-RELEASE"
 printf '%s\n' "$jobs" > "$output/JOBS"
+printf '%s\n' "$native_o82_36" > "$output/NATIVE-O82-36"
 printf '%s\n' "$build_platform" > "$output/BUILD-PLATFORM"
 run_label=()
 [[ -z ${UKE_BUILD_RUN_ID:-} ]] || run_label=(--label "org.uke-fedora.build-run=$UKE_BUILD_RUN_ID")
@@ -179,6 +186,7 @@ cp --reflink=auto "$rootfs/userdata.img" "$output/userdata.img"
 cp "$rootfs/PROFILE-ID" "$rootfs/TOUCH-PANEL" "$rootfs/LOCAL-BLOBS.sha256" "$output/"
 jq -n --arg profile "$(cat "$rootfs/PROFILE-ID")" --arg release "$release" \
     --arg build_platform "$build_platform" \
+    --argjson native_o82_36 "$native_o82_36" \
     --arg panel "$(cat "$rootfs/TOUCH-PANEL")" \
     --arg boot "$(sha256sum "$output/fedora_boot.img" | cut -d ' ' -f1)" \
     --arg userdata "$(sha256sum "$output/userdata.img" | cut -d ' ' -f1)" \
@@ -186,6 +194,7 @@ jq -n --arg profile "$(cat "$rootfs/PROFILE-ID")" --arg release "$release" \
     --slurpfile header "$output/boot-header.json" \
     '{schema_version:1,device:"uke",distribution:"fedora",release:"44",kernel_release:$release,
       kernel_build_platform:$build_platform,
+      experimental_native_o82_36:($native_o82_36 == 1),
       profile:$profile,experimental_desktop:($profile=="phosh" or $profile=="plasma-mobile"),
       touch_panel:$panel,boot_partition:"boot_a",root_partition:"userdata",
       root_image_logical_bytes:$root_bytes,stock_boot_sha256:$stock,
@@ -193,5 +202,5 @@ jq -n --arg profile "$(cat "$rootfs/PROFILE-ID")" --arg release "$release" \
       boot_tested:false,hardware_tested:false,device_write_executed:false}' > "$output/manifest.json"
 (cd "$output"; sha256sum fedora_boot.img userdata.img Image boot.config Module.symvers \
     boot-initramfs.cpio.gz stock-header.json boot-header.json manifest.json PROFILE-ID \
-    TOUCH-PANEL LOCAL-BLOBS.sha256 BUILD-PLATFORM > SHA256SUMS)
+    TOUCH-PANEL LOCAL-BLOBS.sha256 BUILD-PLATFORM NATIVE-O82-36 > SHA256SUMS)
 printf 'Image pair: %s/fedora_boot.img and %s/userdata.img\n' "$output" "$output"

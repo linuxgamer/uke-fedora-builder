@@ -14,12 +14,13 @@ control=''
 profiles_arg=all
 profiles_seen=0
 touch_panel=tm
+native_o82_36=0
 
 usage() {
     cat <<'HELP'
 Usage: ./uke-fedora-builder/build-fedora44-images.sh [--stock-boot FILE] [--output DIR]
        [--profiles LIST] [--touch-panel tm|csot]
-       [--rebuild-kernel] [--cross-kernel] [--resume]
+       [--rebuild-kernel] [--cross-kernel] [--resume] [--native-o82-36]
        ./uke-fedora-builder/build-fedora44-images.sh --status|--stop --output DIR
        ./uke-fedora-builder/build-fedora44-images.sh --audit-only --profiles LIST --output DIR
 
@@ -30,6 +31,8 @@ also build the TTY rootfs and boot pair as shared prerequisites. Bundled OEM
 inputs, including the reviewed stock boot template, are verified automatically.
 The touch panel defaults to TM, matching the tested tablet; select CSOT for a
 tablet whose stock driver identifies that panel.
+--native-o82-36 builds a separate experimental boot image that selects native
+DPU/DSI on O82-36 panels. Keep the normal image for recovery and comparison.
 The script does not flash or select a device slot. A matching kernel RPM build is
 reused unless --rebuild-kernel is given.
 On x86_64, --cross-kernel compiles the ARM64 kernel with native Clang.
@@ -49,6 +52,7 @@ while (($#)); do
         -h|--help) usage; exit 0;;
         --rebuild-kernel) rebuild_kernel=1; shift;;
         --cross-kernel) cross_kernel=1; shift;;
+        --native-o82-36) native_o82_36=1; shift;;
         --resume) resume=1; shift;;
         --status|--stop|--audit-only) [[ -z $control ]] || die 'Choose one control command'; control=$1; shift;;
         *) die "Unknown argument: $1";;
@@ -95,6 +99,17 @@ audit_final() {
         profile_valid "$output/$profile-pair" "$profile" || die "Invalid $profile image pair"
         if grep -Eq 'CONFIG_CMDLINE=".*[[:space:]]systemd\.unit=' "$output/$profile-pair/boot.config"; then
             die "Forced systemd target in $profile boot image"
+        fi
+        display_trial=$(cat "$output/$profile-pair/NATIVE-O82-36")
+        [[ $display_trial == 0 || $display_trial == 1 ]] || die "Invalid $profile display trial receipt"
+        jq -e --argjson trial "$display_trial" '.experimental_native_o82_36 == ($trial == 1)' \
+            "$output/$profile-pair/manifest.json" >/dev/null || die "Incorrect $profile display trial manifest"
+        if [[ $display_trial == 1 ]]; then
+            grep -Eq '^CONFIG_CMDLINE=".*[[:space:]]uke\.native_o82_36=1"$' \
+                "$output/$profile-pair/boot.config" || die "O82-36 trial flag missing from $profile boot image"
+        elif grep -Eq '^CONFIG_CMDLINE=".*[[:space:]]uke\.native_o82_36=1"$' \
+                "$output/$profile-pair/boot.config"; then
+            die "O82-36 trial flag unexpectedly present in $profile boot image"
         fi
         expected_target=graphical.target
         [[ $profile != tty ]] || expected_target=multi-user.target
@@ -250,7 +265,7 @@ for top in "${tops[@]}"; do
         rpmbuild -bp --nodeps --target aarch64 --define "_topdir /work/$top" "${specs[0]}"
         source=$top/BUILD/senemos-uke-linux-kernel-mainline-7.2.11-build/linux-7.2.11
         base=$top/boot-userspace
-        bash "$source/boot-recipe/src/boot/make-initramfs-base.sh" "$base" 7.2.11-10
+        bash "$source/boot-recipe/src/boot/make-initramfs-base.sh" "$base" 7.2.11-30
         clang++ -std=c++17 -O2 -Wall -Wextra -Werror -ffile-prefix-map="$PWD"=. \
             "$source/boot-recipe/src/boot/offline-switch-root.cpp" -o "$base/uke-offline-switch-root"
         clang++ -std=c++20 -O2 -Wall -Wextra -Werror \
@@ -258,7 +273,7 @@ for top in "${tops[@]}"; do
         for binary in uke-offline-switch-root boot-image-aarch64; do
             readelf -h "$base/$binary" | grep -E 'Machine:.*AArch64' >/dev/null
         done
-        printf '7.2.11-10\n' > "$top/.fedora44-cross-pending"
+        printf '7.2.11-30\n' > "$top/.fedora44-cross-pending"
         continue
     fi
     rpmbuild -ba --target aarch64 --define "_topdir /work/$top" "${specs[0]}"
@@ -326,14 +341,14 @@ if [[ -f $kernel_top/.fedora44-cross-pending ]]; then
 set -Eeuo pipefail
 top=/work/senemos-uke-kernel/build/srpm/rpmbuild
 source=$top/BUILD/senemos-uke-linux-kernel-mainline-7.2.11-build/linux-7.2.11
-[[ $(cat "$top/.fedora44-cross-pending") == 7.2.11-10 ]] || exit 2
+[[ $(cat "$top/.fedora44-cross-pending") == 7.2.11-30 ]] || exit 2
 export UKE_CROSS_KERNEL=1 UKE_CCACHE=1 CCACHE_DIR=/build-cache/ccache-cross CCACHE_MAXSIZE=10G
 export KBUILD_BUILD_USER=senemos KBUILD_BUILD_HOST=copr-builder KBUILD_BUILD_VERSION=1
 export SOURCE_DATE_EPOCH=1791725270
 KBUILD_BUILD_TIMESTAMP=$(date -u -d "@$SOURCE_DATE_EPOCH" '+%Y-%m-%d %H:%M:%S UTC')
 export KBUILD_BUILD_TIMESTAMP
 bash "$source/boot-recipe/src/boot/build-payload.sh" "$source" \
-    "$top/native-kernel-out" "$top/boot-userspace/base" 7.2.11-10 8
+    "$top/native-kernel-out" "$top/boot-userspace/base" 7.2.11-30 8
 CROSS_KERNEL
 
     "$container" run --rm -i --network=host --platform linux/arm64 --security-opt label=disable \
@@ -360,7 +375,7 @@ kernel_rpms=$output/kernel-rpms
 mkdir -p "$kernel_rpms"
 find "$kernel_rpms" -maxdepth 1 -type f -name 'senemos-uke-linux-kernel-mainline*.rpm' -delete
 for part in core modules dtbs; do
-    rpm=$kernel_top/RPMS/aarch64/senemos-uke-linux-kernel-mainline-$part-7.2.11-10.fc44.aarch64.rpm
+    rpm=$kernel_top/RPMS/aarch64/senemos-uke-linux-kernel-mainline-$part-7.2.11-30.fc44.aarch64.rpm
     [[ -s $rpm && ! -L $rpm ]] || die "Missing matched kernel RPM: $rpm"
     cp --reflink=auto -- "$rpm" "$kernel_rpms/"
 done
@@ -394,7 +409,7 @@ blobs=$workspace/uke-linux-hardware-support/xiaomi-uke-firmware/payload/oem-os3.
 input_hash=$(
   {
     printf '%s\n' "${UKE_FEDORA_MIRROR:-https://mirror.yandex.ru/fedora/linux}"
-    printf '%s\n' "$arm_image_id" "$amd_image_id" "$native_image_id" "$touch_panel"
+    printf '%s\n' "$arm_image_id" "$amd_image_id" "$native_image_id" "$touch_panel" "$native_o82_36"
     sha256sum "$stock" "$kernel_out/.config" "$kernel_out/boot-initramfs.cpio.gz" \
         "$kernel_out/boot-manifest" "$kernel_out/arch/arm64/boot/Image" \
         "$here/build-fedora44-rootfs.sh" "$here/build-fedora44-boot-a.sh" \
@@ -476,10 +491,12 @@ for profile in "${build_profiles[@]}"; do
         stage=$output/.$profile-pair.$UKE_BUILD_RUN_ID
         clear_profile_dir "$stage"
         if [[ $profile == tty ]]; then
+            boot_args=()
+            ((native_o82_36 == 0)) || boot_args+=(--native-o82-36)
             "$here/build-fedora44-boot-a.sh" \
                 --rootfs "$root_dir" --kernel-source "$kernel_source" \
                 --kernel-out "$kernel_out" --stock-boot "$stock" \
-                --output "$stage"
+                --output "$stage" "${boot_args[@]}"
         else
             "$here/src/image/assemble-pair-from-tty.sh" "$output/tty-pair" "$root_dir" "$stage"
         fi

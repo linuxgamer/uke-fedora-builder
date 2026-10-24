@@ -41,6 +41,21 @@ pairs by default. To build only selected profiles, pass a comma-separated list:
     --profiles kde,gnome --output build/fedora44-images-desktop
 ```
 
+The O82-36 native display path is an unverified 60 Hz trial. On a tablet whose
+bootloader selects O82-36, build it in a separate output directory with
+`--native-o82-36`; ordinary images keep the firmware framebuffer:
+
+```sh
+./uke-fedora-builder/build-fedora44-images.sh --cross-kernel \
+    --profiles kde --native-o82-36 --output build/fedora44-o82-36-trial
+```
+
+Keep the working image and slot B recovery route while testing this candidate.
+Check that KDE shows a picture, touch still works, and a `DSI-1` connector appears
+before treating native display as ready. After the display test, build a GNOME
+pair separately and check its first-run setup, screen keyboard and login on
+the tablet. A successful host build alone does not establish those results.
+
 Desktop selections also prepare the TTY rootfs and boot pair they share. The
 output contains those TTY prerequisites as well as the requested profile pairs.
 With `--resume`, you can add more profiles to the same output directory later.
