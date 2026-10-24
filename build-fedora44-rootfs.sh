@@ -112,7 +112,7 @@ if [[ ${1:-} == --inside ]]; then
     phase_done hardware-packages
     rpm --root "$root" -q --qf '%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n' \
         uke-touchscreen uke-battery-observer uke-boot-integration | \
-        awk '($1 == "uke-touchscreen" && $2 == "0.1.0" && $3 == "15.fc44" && $4 == "aarch64") ||
+        awk '($1 == "uke-touchscreen" && $2 == "0.1.0" && $3 == "16.fc44" && $4 == "aarch64") ||
              ($1 == "uke-battery-observer" && $2 == "1.1.0" && $3 == "1.fc44" && $4 == "aarch64") ||
              ($1 == "uke-boot-integration" && $2 == "1.5.2" && $3 == "1.fc44" && $4 == "aarch64") { good++ }
              END { exit good != 3 || NR != 3 }' || die 'Expected three selected Fedora 44 hardware RPMs'
