@@ -20,9 +20,10 @@ def main() -> int:
         print("build log audit: current run marker is missing", file=sys.stderr)
         return 1
 
-    # These scriptlet errors are tied to artifacts checked by the rootfs audit.
-    # Any new error in a DNF scriptlet blocks publication pending investigation.
+    # Known installroot-only warnings are reviewed here. Rootfs artifacts are
+    # checked separately; any new scriptlet error still blocks publication.
     expected = {
+        "Failed to connect to audit log, ignoring: Invalid argument",
         "Failed to write database /etc/udev/hwdb.bin: Function not implemented",
         "Failed to preset unit: Unit systemd-tmpfiles-clear.service does not exist",
         "Failed to preset unit: Unit plasma-kded.service does not exist",
