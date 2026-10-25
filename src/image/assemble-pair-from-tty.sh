@@ -18,7 +18,8 @@ case $profile in kde|gnome|phosh|plasma-mobile) ;; *) exit 1;; esac
 [[ $(jq -er .sha256.boot "$tty_pair/manifest.json") == "$(sha256sum "$tty_pair/fedora_boot.img" | cut -d' ' -f1)" ]] || exit 1
 mkdir -p "$output"
 for name in fedora_boot.img Image boot.config Module.symvers boot-initramfs.cpio.gz \
-            stock-header.json boot-header.json BUILD-PLATFORM NATIVE-O82-36; do
+            stock-header.json boot-header.json BUILD-PLATFORM NATIVE-O82-36 \
+            NATIVE-O82-36-RATES; do
     cp --reflink=auto "$tty_pair/$name" "$output/$name"
 done
 cp --reflink=auto "$rootfs/userdata.img" "$output/userdata.img"
@@ -31,5 +32,6 @@ jq --arg profile "$profile" --arg panel "$(cat "$rootfs/TOUCH-PANEL")" \
    "$tty_pair/manifest.json" > "$output/manifest.json"
 (cd "$output" && sha256sum fedora_boot.img userdata.img Image boot.config Module.symvers \
     boot-initramfs.cpio.gz stock-header.json boot-header.json manifest.json PROFILE-ID \
-    TOUCH-PANEL LOCAL-BLOBS.sha256 BUILD-PLATFORM NATIVE-O82-36 > SHA256SUMS)
+    TOUCH-PANEL LOCAL-BLOBS.sha256 BUILD-PLATFORM NATIVE-O82-36 \
+    NATIVE-O82-36-RATES > SHA256SUMS)
 printf 'Image pair: %s/fedora_boot.img and %s/userdata.img\n' "$output" "$output"
