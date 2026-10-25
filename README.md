@@ -41,35 +41,12 @@ pairs by default. To build only selected profiles, pass a comma-separated list:
     --profiles kde,gnome --output build/fedora44-images-desktop
 ```
 
-The O82-36 native display path has booted KDE with touch at 60 Hz on one TM
-tablet. On a tablet whose bootloader selects O82-36, build it in a separate
-output directory with `--native-o82-36`; ordinary images keep the firmware
-framebuffer:
-
-```sh
-./uke-fedora-builder/build-fedora44-images.sh --cross-kernel \
-    --profiles kde --native-o82-36 --output build/fedora44-o82-36-trial
-```
-
-For a separate **unverified** 60/120 Hz O82-36 experiment, keep the working
-60 Hz pair and build with `--native-o82-36-rates` in another output directory:
-
-```sh
-./uke-fedora-builder/build-fedora44-images.sh --cross-kernel \
-    --profiles kde --native-o82-36-rates --output build/fedora44-o82-36-rates
-```
-
-This flag includes native O82-36 and adds a distinct DT/boot receipt. It keeps
-60 Hz preferred and only advertises 60 and 120 Hz. The OEM data and host
-checks are not a tablet result: test both directions, touch and brightness on
-the actual panel before making 120 Hz a release option. Do not enable adaptive
-VRR as part of this fixed-rate trial.
-
-Keep the working image and slot B recovery route while testing this candidate.
-Check that KDE shows a picture, touch still works, and a `DSI-1` connector appears
-before treating native display as ready. After the display test, build a GNOME
-pair separately and check its first-run setup, screen keyboard and login on
-the tablet. A successful host build alone does not establish those results.
+The stock panel selector now enables native display by default. O82-36 offers
+the seven fixed OEM modes: 30, 48, 50, 60, 90, 120 and 144 Hz. The owner has
+observed 60 and 120 Hz switching with touch on one O82-36/TM tablet. Test the
+other rates and sleep/wake before treating this mode set as release ready.
+Keep the earlier working 60/120 boot image for recovery. Adaptive VRR remains
+separate from these fixed modes.
 
 Desktop selections also prepare the TTY rootfs and boot pair they share. The
 output contains those TTY prerequisites as well as the requested profile pairs.
