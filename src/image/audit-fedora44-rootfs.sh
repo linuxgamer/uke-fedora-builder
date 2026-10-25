@@ -20,6 +20,10 @@ hwdb_bytes=$(stat -c %s "$root/etc/udev/hwdb.bin")
    -s $root/usr/lib/systemd/system/uke-clock-save.timer ]] || fail 'offline clock units are missing'
 [[ -L $root/etc/systemd/system/sysinit.target.wants/uke-clock-restore.service &&
    -L $root/etc/systemd/system/timers.target.wants/uke-clock-save.timer ]] || fail 'offline clock units are disabled'
+[[ -f $root/usr/lib/systemd/system/chronyd.service.d/70-uke-clock.conf ]] &&
+    grep -Fxq 'ExecStart=/usr/sbin/chronyd -n $OPTIONS' \
+        "$root/usr/lib/systemd/system/chronyd.service.d/70-uke-clock.conf" \
+    || fail 'chronyd can override the restored time from RTC'
 
 # The catalog trigger can fail in an installroot. Preserve its input for boot.
 [[ -s $root/usr/lib/systemd/catalog/dbus-broker-launch.catalog ]] || fail 'dbus catalog source is missing'
@@ -46,14 +50,13 @@ done < <(jq -r '.files[] | [.target_path, .sha256] | @tsv' \
     "$(dirname -- "${BASH_SOURCE[0]}")/../../../uke-linux-hardware-support/xiaomi-uke-firmware/manifests/local-firmware-candidates.json")
 ((firmware_count == 74)) || fail "Expected 74 pinned firmware files; got $firmware_count"
 touch_panel=$(cat "$output/TOUCH-PANEL")
-case $touch_panel in tm|csot) ;; *) fail 'invalid touch panel selection' ;; esac
-[[ -s $output/TOUCH-INSTALLED.sha256 ]] || fail 'private touch input receipt is missing'
-for name in normal.bin config.ini reference.bin; do
-    source=$blobs/touch/$touch_panel/$name
-    [[ $name != reference.bin ]] || source=$blobs/touch/reference.bin
+[[ $touch_panel == auto ]] || fail 'touch selection is not automatic'
+[[ -s $output/TOUCH-INSTALLED.sha256 ]] || fail 'touch input receipt is missing'
+for name in tm/normal.bin tm/config.ini csot/normal.bin csot/config.ini reference.bin; do
+    source=$blobs/touch/$name
     expected=$(sha256sum "$source" | cut -d' ' -f1)
     installed=$(awk -v name="$name" '$2 == name {print $1}' "$output/TOUCH-INSTALLED.sha256")
-    [[ $installed == "$expected" ]] || fail "Touch $name does not match selected $touch_panel panel"
+    [[ $installed == "$expected" ]] || fail "Touch $name differs from bundled OEM input"
 done
 
 [[ -s $root/etc/fstab ]] && grep -Fq 'PARTLABEL=userdata / ext4 ' "$root/etc/fstab" || fail 'userdata mount is missing'
@@ -67,6 +70,7 @@ case $profile in
             || fail 'TTY touch keyboard is not enabled'
         ;;
     kde|plasma-mobile)
+        grep -Eq '^upower[[:space:]]' "$output/packages.tsv" || fail 'UPower is missing from graphical rootfs'
         if grep -Eq '^uke-console-input[[:space:]]' "$output/packages.tsv"; then fail 'TTY keyboard RPM is in GUI inventory'; fi
         [[ ! -e $root/usr/bin/buffyboard && ! -L $root/usr/bin/buffyboard && \
            ! -e $root/usr/lib/systemd/system/uke-console-input.service && \
@@ -81,6 +85,7 @@ case $profile in
         [[ -s $root/usr/share/wayland-sessions/${profile/kde/plasma}.desktop ]] || fail 'Plasma Wayland session is missing'
         ;;
     gnome|phosh)
+        grep -Eq '^upower[[:space:]]' "$output/packages.tsv" || fail 'UPower is missing from graphical rootfs'
         if grep -Eq '^uke-console-input[[:space:]]' "$output/packages.tsv"; then fail 'TTY keyboard RPM is in GUI inventory'; fi
         [[ ! -e $root/usr/bin/buffyboard && ! -L $root/usr/bin/buffyboard && \
            ! -e $root/usr/lib/systemd/system/uke-console-input.service && \

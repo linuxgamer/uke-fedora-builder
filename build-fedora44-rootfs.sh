@@ -7,7 +7,7 @@ usage() {
     cat <<'HELP'
 Usage: ./build-fedora44-rootfs.sh --profile tty|kde|gnome|phosh|plasma-mobile \
        --kernel-rpms DIR --core-rpm FILE --hardware-rpms DIR \
-       --output DIR [--touch-panel csot|tm] [--root-mib 4096]
+       --output DIR [--touch-panel auto] [--root-mib 4096]
        [--base-rootfs VERIFIED_TTY_DIR]
 
 Compose a Fedora 44 AArch64 rootfs from Fedora packages and locally built
@@ -102,7 +102,7 @@ if [[ ${1:-} == --inside ]]; then
     [[ $(rpm --root "$root" -q --qf '%{VERSION} %{RELEASE} %{ARCH}' uke-core-meta) == '1.0.4 1.fc44 aarch64' ]] || die 'Expected Fedora 44 Uke Core RPM'
     dnf_install_with_download_retry -y --use-host-config --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True --installroot="$root" --releasever=44 \
         --setopt=install_weak_deps=False --setopt=localpkg_gpgcheck=False install \
-        /hardware-rpms/uke-touchscreen-0.1.0-*.fc44.aarch64.rpm \
+        /hardware-rpms/uke-touchscreen-0.1.0-18.fc44.aarch64.rpm \
         /hardware-rpms/uke-battery-observer-1.1.0-*.fc44.aarch64.rpm \
         /hardware-rpms/uke-boot-integration-1.5.2-*.fc44.aarch64.rpm \
         /hardware-rpms/libssc-0.4.4-*.fc44.aarch64.rpm \
@@ -112,9 +112,9 @@ if [[ ${1:-} == --inside ]]; then
     phase_done hardware-packages
     rpm --root "$root" -q --qf '%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n' \
         uke-touchscreen uke-battery-observer uke-boot-integration | \
-        awk '($1 == "uke-touchscreen" && $2 == "0.1.0" && $3 == "17.fc44" && $4 == "aarch64") ||
+        awk '($1 == "uke-touchscreen" && $2 == "0.1.0" && $3 == "18.fc44" && $4 == "aarch64") ||
              ($1 == "uke-battery-observer" && $2 == "1.1.0" && $3 == "1.fc44" && $4 == "aarch64") ||
-             ($1 == "uke-boot-integration" && $2 == "1.5.2" && $3 == "2.fc44" && $4 == "aarch64") { good++ }
+             ($1 == "uke-boot-integration" && $2 == "1.5.2" && $3 == "3.fc44" && $4 == "aarch64") { good++ }
              END { exit good != 3 || NR != 3 }' || die 'Expected three selected Fedora 44 hardware RPMs'
     rpm --root "$root" -q --qf '%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n' \
         libssc iio-sensor-proxy uke-ssc-fileservice uke-fedora44-oem-data | \
@@ -129,10 +129,13 @@ if [[ ${1:-} == --inside ]]; then
     install -Dm644 /builder/uke-ssc-fedora44.target "$root/usr/lib/systemd/system/uke-ssc-fedora44.target"
     systemctl --root="$root" enable uke-ssc-fedora44.target
     panel=$(cat /workspace/TOUCH-PANEL)
-    case $panel in csot|tm) ;; *) die 'Invalid touch panel selection' ;; esac
-    for name in normal.bin config.ini; do
-        [[ -f /local-blobs/touch/$panel/$name && ! -L /local-blobs/touch/$panel/$name ]] || die "Missing selected touch input: $name"
-        install -Dm600 "/local-blobs/touch/$panel/$name" "$root/var/lib/uke-touch/$name"
+    [[ $panel == auto ]] || die 'Touch selection must be automatic'
+    for variant in tm csot; do
+        for name in normal.bin config.ini; do
+            [[ -f /local-blobs/touch/$variant/$name && ! -L /local-blobs/touch/$variant/$name ]] || die "Missing $variant touch input: $name"
+            install -Dm600 "/local-blobs/touch/$variant/$name" "$root/var/lib/uke-touch/$variant/$name"
+        done
+        chmod 0700 "$root/var/lib/uke-touch/$variant"
     done
     [[ -f /local-blobs/touch/reference.bin && ! -L /local-blobs/touch/reference.bin ]] || die 'Missing device touch reference'
     install -Dm600 /local-blobs/touch/reference.bin "$root/var/lib/uke-touch/reference.bin"
@@ -164,7 +167,7 @@ if [[ ${1:-} == --inside ]]; then
             systemctl --root="$root" disable uke-create-user.service
             rm -f "$root/usr/lib/systemd/system/uke-create-user.service" \
                 "$root/usr/libexec/uke-create-user"
-            common=(NetworkManager-wifi bluez dbus-daemon mesa-dri-drivers pipewire wireplumber
+            common=(NetworkManager-wifi bluez dbus-daemon mesa-dri-drivers pipewire wireplumber upower
                     polkit udisks2 xorg-x11-server-Xwayland)
             case $profile in
                 kde) desktop=(plasma-desktop plasma-workspace kwin sddm sddm-breeze plasma-setup
@@ -240,7 +243,7 @@ if [[ ${1:-} == --inside ]]; then
     exit 0
 fi
 
-profile='' rpms='' core_rpm='' hardware_rpms='' output='' base_rootfs='' panel=tm root_mib=4096
+profile='' rpms='' core_rpm='' hardware_rpms='' output='' base_rootfs='' panel=auto root_mib=4096
 blobs=$here/../uke-linux-hardware-support/xiaomi-uke-firmware/payload/oem-os3.0.304.0
 while (($#)); do
     case $1 in
@@ -254,7 +257,7 @@ while (($#)); do
 done
 case $profile in tty|kde|gnome|phosh|plasma-mobile) ;; *) die 'Unknown profile' ;; esac
 [[ -d $rpms && -f $core_rpm && -d $hardware_rpms && -d $blobs && -n $output ]] || die 'Provide --kernel-rpms, --core-rpm, --hardware-rpms and --output; bundled OEM files must be present'
-case $panel in csot|tm) ;; *) die 'Select csot or tm touch panel' ;; esac
+[[ $panel == auto ]] || die 'Touch selection is automatic; omit --touch-panel'
 [[ $root_mib =~ ^[1-9][0-9]*$ ]] && ((root_mib >= 4096 && root_mib <= 65536)) || die 'Root image size must be 4096..65536 MiB'
 verify="$here/../uke-linux-hardware-support/xiaomi-uke-firmware/src/verify-fedora44-oem-304.sh"
 [[ -x $verify ]] || die "Local blob verifier missing: $verify"
@@ -310,7 +313,9 @@ sha256sum "$rpms"/senemos-uke-linux-kernel-mainline-{core,modules,dtbs}-7.2.11-"
     sed "s|$rpms/||" > "$output/KERNEL-RPMS.sha256"
 printf '%s  %s\n' "$(sha256sum "$core_rpm" | cut -d ' ' -f1)" "$(basename -- "$core_rpm")" > "$output/CORE-RPM.sha256"
 sha256sum "${hardware_files[@]}" | sed "s|$hardware_rpms/||" > "$output/HARDWARE-RPMS.sha256"
-sha256sum "$blobs/touch/$panel/normal.bin" "$blobs/touch/$panel/config.ini" "$blobs/touch/reference.bin" | sed "s|$blobs/||" > "$output/LOCAL-BLOBS.sha256"
+sha256sum "$blobs/touch/tm/normal.bin" "$blobs/touch/tm/config.ini" \
+    "$blobs/touch/csot/normal.bin" "$blobs/touch/csot/config.ini" \
+    "$blobs/touch/reference.bin" | sed "s|$blobs/||" > "$output/LOCAL-BLOBS.sha256"
 if [[ -n $base_rootfs ]]; then
     for receipt in KERNEL-RPMS.sha256 CORE-RPM.sha256 HARDWARE-RPMS.sha256 LOCAL-BLOBS.sha256 TOUCH-PANEL; do
         cmp "$base_rootfs/$receipt" "$output/$receipt" || die "TTY base input differs: $receipt"

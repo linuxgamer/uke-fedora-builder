@@ -19,13 +19,15 @@ expected_context='/mnt/vendor/persist -d system_u:object_r:mnt_t:s0'
     echo 'Unexpected local SELinux file contexts' >&2; exit 1;
 }
 printf '%s\n' "$expected_context" > "$local_contexts"
-for name in normal.bin config.ini reference.bin; do
+for name in tm/normal.bin tm/config.ini csot/normal.bin csot/config.ini reference.bin; do
     [[ -f $root/var/lib/uke-touch/$name && ! -L $root/var/lib/uke-touch/$name ]] || {
         echo "Missing private touch input: $name" >&2; exit 1;
     }
 done
-sha256sum "$root/var/lib/uke-touch/normal.bin" \
-    "$root/var/lib/uke-touch/config.ini" \
+sha256sum "$root/var/lib/uke-touch/tm/normal.bin" \
+    "$root/var/lib/uke-touch/tm/config.ini" \
+    "$root/var/lib/uke-touch/csot/normal.bin" \
+    "$root/var/lib/uke-touch/csot/config.ini" \
     "$root/var/lib/uke-touch/reference.bin" | \
     sed "s|  $root/var/lib/uke-touch/|  |" > /workspace/TOUCH-INSTALLED.sha256
 truncate -s "$((root_mib * 1024 * 1024))" /workspace/userdata.raw.img

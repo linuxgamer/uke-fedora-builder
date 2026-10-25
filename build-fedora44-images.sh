@@ -13,12 +13,12 @@ resume=0
 control=''
 profiles_arg=all
 profiles_seen=0
-touch_panel=tm
+touch_panel=auto
 
 usage() {
     cat <<'HELP'
 Usage: ./uke-fedora-builder/build-fedora44-images.sh [--stock-boot FILE] [--output DIR]
-       [--profiles LIST] [--touch-panel tm|csot]
+       [--profiles LIST] [--touch-panel auto]
        [--rebuild-kernel] [--cross-kernel] [--resume]
        ./uke-fedora-builder/build-fedora44-images.sh --status|--stop --output DIR
        ./uke-fedora-builder/build-fedora44-images.sh --audit-only --profiles LIST --output DIR
@@ -28,8 +28,8 @@ Phosh and Plasma Mobile boot_a/userdata pairs. LIST is all (the default) or
 a comma-separated subset of tty,kde,gnome,phosh,plasma-mobile. Desktop profiles
 also build the TTY rootfs and boot pair as shared prerequisites. Bundled OEM
 inputs, including the reviewed stock boot template, are verified automatically.
-The touch panel defaults to TM, matching the tested tablet; select CSOT for a
-tablet whose stock driver identifies that panel.
+Each rootfs contains both pinned touch pairs; GPIO26 selects TM or CSOT at
+startup before firmware loading. CSOT still needs a physical tablet test.
 The stock panel selector uses native DPU/DSI with seven fixed OEM modes on
 O82-36. Keep a previously tested boot image for recovery while testing rates.
 The script does not flash or select a device slot. A matching kernel RPM build is
@@ -56,7 +56,7 @@ while (($#)); do
         *) die "Unknown argument: $1";;
     esac
 done
-[[ $touch_panel == tm || $touch_panel == csot ]] || die 'Select tm or csot touch panel'
+[[ $touch_panel == auto ]] || die 'Touch selection is automatic; omit --touch-panel'
 canonical_profiles=(tty kde gnome phosh plasma-mobile)
 declare -A seen_profiles=()
 if [[ $profiles_arg != all ]]; then
@@ -262,7 +262,7 @@ for top in "${tops[@]}"; do
         rpmbuild -bp --nodeps --target aarch64 --define "_topdir /work/$top" "${specs[0]}"
         source=$top/BUILD/senemos-uke-linux-kernel-mainline-7.2.11-build/linux-7.2.11
         base=$top/boot-userspace
-        bash "$source/boot-recipe/src/boot/make-initramfs-base.sh" "$base" 7.2.11-33
+        bash "$source/boot-recipe/src/boot/make-initramfs-base.sh" "$base" 7.2.11-34
         clang++ -std=c++17 -O2 -Wall -Wextra -Werror -ffile-prefix-map="$PWD"=. \
             "$source/boot-recipe/src/boot/offline-switch-root.cpp" -o "$base/uke-offline-switch-root"
         clang++ -std=c++20 -O2 -Wall -Wextra -Werror \
@@ -270,7 +270,7 @@ for top in "${tops[@]}"; do
         for binary in uke-offline-switch-root boot-image-aarch64; do
             readelf -h "$base/$binary" | grep -E 'Machine:.*AArch64' >/dev/null
         done
-        printf '7.2.11-33\n' > "$top/.fedora44-cross-pending"
+        printf '7.2.11-34\n' > "$top/.fedora44-cross-pending"
         continue
     fi
     rpmbuild -ba --target aarch64 --define "_topdir /work/$top" "${specs[0]}"
@@ -338,14 +338,14 @@ if [[ -f $kernel_top/.fedora44-cross-pending ]]; then
 set -Eeuo pipefail
 top=/work/senemos-uke-kernel/build/srpm/rpmbuild
 source=$top/BUILD/senemos-uke-linux-kernel-mainline-7.2.11-build/linux-7.2.11
-[[ $(cat "$top/.fedora44-cross-pending") == 7.2.11-33 ]] || exit 2
+[[ $(cat "$top/.fedora44-cross-pending") == 7.2.11-34 ]] || exit 2
 export UKE_CROSS_KERNEL=1 UKE_CCACHE=1 CCACHE_DIR=/build-cache/ccache-cross CCACHE_MAXSIZE=10G
 export KBUILD_BUILD_USER=senemos KBUILD_BUILD_HOST=copr-builder KBUILD_BUILD_VERSION=1
 export SOURCE_DATE_EPOCH=1791725270
 KBUILD_BUILD_TIMESTAMP=$(date -u -d "@$SOURCE_DATE_EPOCH" '+%Y-%m-%d %H:%M:%S UTC')
 export KBUILD_BUILD_TIMESTAMP
 bash "$source/boot-recipe/src/boot/build-payload.sh" "$source" \
-    "$top/native-kernel-out" "$top/boot-userspace/base" 7.2.11-33 8
+    "$top/native-kernel-out" "$top/boot-userspace/base" 7.2.11-34 8
 CROSS_KERNEL
 
     "$container" run --rm -i --network=host --platform linux/arm64 --security-opt label=disable \
@@ -372,7 +372,7 @@ kernel_rpms=$output/kernel-rpms
 mkdir -p "$kernel_rpms"
 find "$kernel_rpms" -maxdepth 1 -type f -name 'senemos-uke-linux-kernel-mainline*.rpm' -delete
 for part in core modules dtbs; do
-    rpm=$kernel_top/RPMS/aarch64/senemos-uke-linux-kernel-mainline-$part-7.2.11-33.fc44.aarch64.rpm
+    rpm=$kernel_top/RPMS/aarch64/senemos-uke-linux-kernel-mainline-$part-7.2.11-34.fc44.aarch64.rpm
     [[ -s $rpm && ! -L $rpm ]] || die "Missing matched kernel RPM: $rpm"
     cp --reflink=auto -- "$rpm" "$kernel_rpms/"
 done
@@ -393,10 +393,10 @@ core_rpm=$workspace/uke-linux-hardware-support/uke-core-meta/build/srpm/rpmbuild
 hardware_rpms=$output/hardware-rpms
 mkdir -p "$hardware_rpms"
 find "$hardware_rpms" -maxdepth 1 -type f -name '*.rpm' -delete
-cp "$workspace"/uke-linux-hardware-support/uke-sensors/build/rpmbuild/RPMS/aarch64/uke-touchscreen-0.1.0-17.fc44.aarch64.rpm "$hardware_rpms/"
+cp "$workspace"/uke-linux-hardware-support/uke-sensors/build/rpmbuild/RPMS/aarch64/uke-touchscreen-0.1.0-18.fc44.aarch64.rpm "$hardware_rpms/"
 cp "$workspace"/uke-linux-hardware-support/uke-console-input/build/rpmbuild/RPMS/aarch64/uke-console-input-3.6.0-*.fc44.aarch64.rpm "$hardware_rpms/"
 cp "$workspace"/uke-linux-hardware-support/uke-platform-runtime/build/rpmbuild/RPMS/aarch64/uke-battery-observer-1.1.0-*.fc44.aarch64.rpm "$hardware_rpms/"
-cp "$workspace"/uke-linux-hardware-support/uke-boot/build/srpm/rpmbuild/RPMS/aarch64/uke-boot-integration-1.5.2-2.fc44.aarch64.rpm "$hardware_rpms/"
+cp "$workspace"/uke-linux-hardware-support/uke-boot/build/srpm/rpmbuild/RPMS/aarch64/uke-boot-integration-1.5.2-3.fc44.aarch64.rpm "$hardware_rpms/"
 cp "$workspace"/uke-linux-hardware-support/uke-sensors/build/srpm/libssc/rpmbuild/RPMS/aarch64/libssc-0.4.4-*.fc44.aarch64.rpm "$hardware_rpms/"
 cp "$workspace"/uke-linux-hardware-support/uke-sensors/build/srpm/iio-sensor-proxy/rpmbuild/RPMS/aarch64/iio-sensor-proxy-3.9-*.fc44.aarch64.rpm "$hardware_rpms/"
 cp "$workspace"/uke-linux-hardware-support/uke-sensors/build/srpm/uke-ssc-fileservice/rpmbuild/RPMS/aarch64/uke-ssc-fileservice-2026.09.21-*.fc44.aarch64.rpm "$hardware_rpms/"
@@ -419,7 +419,8 @@ input_hash=$(
         "$here/src/boot/boot-image.cpp" "$here/configs/firstboot/uke-create-user" \
         "$here/configs/firstboot/uke-create-user.service" \
         "$here/configs/images/uke-persist.fstab" "$here/configs/images/uke-ssc-fedora44.target" \
-        "$blobs/touch/$touch_panel/normal.bin" "$blobs/touch/$touch_panel/config.ini" \
+        "$blobs/touch/tm/normal.bin" "$blobs/touch/tm/config.ini" \
+        "$blobs/touch/csot/normal.bin" "$blobs/touch/csot/config.ini" \
         "$blobs/touch/reference.bin" "$core_rpm" "$kernel_rpms"/*.rpm "$hardware_rpms"/*.rpm | \
         awk '{print $1}'
   } | sha256sum | cut -d' ' -f1

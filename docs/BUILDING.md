@@ -17,9 +17,9 @@ separate TTY, KDE, GNOME, Phosh and Plasma Mobile pairs. Desktop builds also
 produce a TTY pair as a shared prerequisite. The script creates files only;
 it does not flash or select a slot.
 
-The touch firmware defaults to TM, matching the tested tablet's stock panel
-ID. If the stock touch driver identifies a CSOT panel, add `--touch-panel csot`
-to the build command. The daemon checks the panel ID before loading firmware.
+Each rootfs contains both pinned TM and CSOT touch pairs. The daemon reads
+GPIO26 and selects the matching pair before loading firmware. TM was tested on
+the available tablet; CSOT still needs physical validation.
 
 Check progress or stop a running build from another terminal:
 

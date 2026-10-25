@@ -194,7 +194,7 @@ jq -n --arg profile "$(cat "$rootfs/PROFILE-ID")" --arg release "$release" \
       experimental_native_o82_36_rates:true,
       experimental_native_o82_36_all_rates:true,
       profile:$profile,experimental_desktop:($profile=="phosh" or $profile=="plasma-mobile"),
-      touch_panel:$panel,boot_partition:"boot_a",root_partition:"userdata",
+      touch_panel:$panel,touch_variants:["tm","csot"],boot_partition:"boot_a",root_partition:"userdata",
       root_image_logical_bytes:$root_bytes,stock_boot_sha256:$stock,
       sha256:{boot:$boot,userdata:$userdata},header:$header[0],
       boot_tested:false,hardware_tested:false,device_write_executed:false}' > "$output/manifest.json"
