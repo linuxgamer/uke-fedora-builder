@@ -185,6 +185,11 @@ fi
 build_start
 exec > >(tee -a "$output/build.log") 2>&1
 printf '===== UKE BUILD RUN %s =====\n' "$UKE_BUILD_RUN_ID"
+case "$native_o82_36:$native_o82_36_rates" in
+    0:0) printf 'O82-36 native display: disabled; use --native-o82-36-rates for the 60/120 Hz trial\n';;
+    1:0) printf 'O82-36 native display: 60 Hz trial enabled\n';;
+    1:1) printf 'O82-36 native display: 60/120 Hz trial enabled\n';;
+esac
 if [[ -z $stock ]]; then
     [[ -f $stock_archive && ! -L $stock_archive ]] || die 'Bundled OS3.0.304.0 stock boot template is missing'
     [[ $(sha256sum "$stock_archive" | cut -d' ' -f1) == d001b8d7a15d088ae24fcb90d85023bd7af2360f8fdb72cf70f4e1b8c6085f1b ]] || die 'Bundled stock boot archive hash mismatch'
@@ -528,4 +533,5 @@ audit_final
 build_progress_done
 printf 'Requested profiles: %s\n' "${requested_profiles[*]}"
 printf 'Built or reused image pairs: %s\n' "${build_profiles[*]}"
+printf 'O82-36 native display flags: native=%s rates=%s\n' "$native_o82_36" "$native_o82_36_rates"
 printf 'Image pairs are in %s\n' "$output"
