@@ -168,7 +168,7 @@ if [[ ${1:-} == --inside ]]; then
             case $profile in
                 kde) desktop=(plasma-desktop plasma-workspace kwin sddm sddm-breeze plasma-setup
                               sddm-wayland-plasma konsole dolphin plasma-nm
-                              plasma-keyboard plasma-systemsettings plasma-pa
+                              plasma-keyboard plasma-systemsettings kscreen plasma-pa
                               powerdevil); display=sddm ;;
                 gnome) desktop=(gnome-shell gnome-session-wayland-session gdm gnome-initial-setup gnome-control-center
                                 gnome-settings-daemon gnome-terminal nautilus); display=gdm ;;
@@ -176,7 +176,7 @@ if [[ ${1:-} == --inside ]]; then
                                 gnome-session-wayland-session gnome-settings-daemon phosh-mobile-settings
                                 stevia-phosh-osk-provider gnome-control-center); display=gdm ;;
                 plasma-mobile) desktop=(plasma-mobile plasma-workspace kwin sddm sddm-breeze plasma-setup
-                                         plasma-settings plasma-nm plasma-keyboard
+                                         plasma-settings kscreen plasma-nm plasma-keyboard
                                          plasma-pa powerdevil); display=sddm ;;
             esac
             dnf_install_with_download_retry -y --use-host-config --disable-repo=fedora-cisco-openh264 \
