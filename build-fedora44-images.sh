@@ -396,7 +396,7 @@ core_rpm=$workspace/uke-linux-hardware-support/uke-core-meta/build/srpm/rpmbuild
 hardware_rpms=$output/hardware-rpms
 mkdir -p "$hardware_rpms"
 find "$hardware_rpms" -maxdepth 1 -type f -name '*.rpm' -delete
-cp "$workspace"/uke-linux-hardware-support/uke-sensors/build/rpmbuild/RPMS/aarch64/uke-touchscreen-0.1.0-16.fc44.aarch64.rpm "$hardware_rpms/"
+cp "$workspace"/uke-linux-hardware-support/uke-sensors/build/rpmbuild/RPMS/aarch64/uke-touchscreen-0.1.0-17.fc44.aarch64.rpm "$hardware_rpms/"
 cp "$workspace"/uke-linux-hardware-support/uke-console-input/build/rpmbuild/RPMS/aarch64/uke-console-input-3.6.0-*.fc44.aarch64.rpm "$hardware_rpms/"
 cp "$workspace"/uke-linux-hardware-support/uke-platform-runtime/build/rpmbuild/RPMS/aarch64/uke-battery-observer-1.1.0-*.fc44.aarch64.rpm "$hardware_rpms/"
 cp "$workspace"/uke-linux-hardware-support/uke-boot/build/srpm/rpmbuild/RPMS/aarch64/uke-boot-integration-1.5.2-*.fc44.aarch64.rpm "$hardware_rpms/"
