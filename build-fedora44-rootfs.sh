@@ -114,7 +114,7 @@ if [[ ${1:-} == --inside ]]; then
         uke-touchscreen uke-battery-observer uke-boot-integration | \
         awk '($1 == "uke-touchscreen" && $2 == "0.1.0" && $3 == "17.fc44" && $4 == "aarch64") ||
              ($1 == "uke-battery-observer" && $2 == "1.1.0" && $3 == "1.fc44" && $4 == "aarch64") ||
-             ($1 == "uke-boot-integration" && $2 == "1.5.2" && $3 == "1.fc44" && $4 == "aarch64") { good++ }
+             ($1 == "uke-boot-integration" && $2 == "1.5.2" && $3 == "2.fc44" && $4 == "aarch64") { good++ }
              END { exit good != 3 || NR != 3 }' || die 'Expected three selected Fedora 44 hardware RPMs'
     rpm --root "$root" -q --qf '%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n' \
         libssc iio-sensor-proxy uke-ssc-fileservice uke-fedora44-oem-data | \
@@ -124,7 +124,8 @@ if [[ ${1:-} == --inside ]]; then
              ($1 == "uke-fedora44-oem-data" && $2 == "3.0.304.0" && $3 == "2.fc44" && $4 == "noarch") { good++ }
              END { exit good != 4 || NR != 4 }' || die 'Expected Fedora 44 SSC and OEM data RPMs'
     fi
-    systemctl --root="$root" enable uke-touchscreen.service uke-battery.service uke-wifi-factory.service uke-bluetooth-address.service
+    systemctl --root="$root" enable uke-touchscreen.service uke-battery.service uke-wifi-factory.service uke-bluetooth-address.service \
+        uke-clock-restore.service uke-clock-save.timer
     install -Dm644 /builder/uke-ssc-fedora44.target "$root/usr/lib/systemd/system/uke-ssc-fedora44.target"
     systemctl --root="$root" enable uke-ssc-fedora44.target
     panel=$(cat /workspace/TOUCH-PANEL)

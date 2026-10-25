@@ -15,6 +15,11 @@ case $profile in tty|kde|gnome|phosh|plasma-mobile) ;; *) fail 'invalid profile'
 hwdb_bytes=$(stat -c %s "$root/etc/udev/hwdb.bin")
 ((hwdb_bytes > 10000000)) || fail "hardware database is incomplete ($hwdb_bytes bytes)"
 [[ -s $root/usr/lib/udev/hwdb.d/20-OUI.hwdb ]] || fail 'hardware database source is missing'
+[[ -x $root/usr/libexec/senemos-uke/uke-clock-state ]] || fail 'offline clock helper is missing'
+[[ -s $root/usr/lib/systemd/system/uke-clock-restore.service &&
+   -s $root/usr/lib/systemd/system/uke-clock-save.timer ]] || fail 'offline clock units are missing'
+[[ -L $root/etc/systemd/system/sysinit.target.wants/uke-clock-restore.service &&
+   -L $root/etc/systemd/system/timers.target.wants/uke-clock-save.timer ]] || fail 'offline clock units are disabled'
 
 # The catalog trigger can fail in an installroot. Preserve its input for boot.
 [[ -s $root/usr/lib/systemd/catalog/dbus-broker-launch.catalog ]] || fail 'dbus catalog source is missing'
