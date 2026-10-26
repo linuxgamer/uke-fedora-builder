@@ -23,6 +23,8 @@ die() { printf 'fedora44-rootfs: %s\n' "$*" >&2; exit 1; }
 
 if [[ ${1:-} == --inside ]]; then
     [[ $# == 1 && -d /workspace && -d /kernel-rpms && -d /hardware-rpms && -d /local-blobs && -f /core-rpm/uke-core-meta.rpm && -f /builder/uke-create-user && -f /builder/uke-create-user.service ]] || die 'Invalid container invocation'
+    uke_kernel_krel=$(jq -er '.kernel_version + "-" + .kernel_release' /builder/package-lock.json)
+    uke_boot_rpm_release=$(jq -er '.boot_integration_version + "-" + .boot_integration_release + ".fc44"' /builder/package-lock.json)
     root=/workspace/root
     mkdir "$root"
     phase_start=$SECONDS
@@ -95,8 +97,9 @@ if [[ ${1:-} == --inside ]]; then
         senemos-uke-linux-kernel-mainline-core \
         senemos-uke-linux-kernel-mainline-modules \
         senemos-uke-linux-kernel-mainline-dtbs | \
-        awk '$1 != "7.2.11" || $2 !~ /^[1-9][0-9]*\.fc44$/ || $3 != "aarch64" { bad=1 } NR==1 { release=$2 } $2 != release { bad=1 } END { exit bad || NR != 3 }' \
-        || die 'Expected three matching Fedora 44 AArch64 Linux 7.2.11 RPMs'
+        awk -v version="${uke_kernel_krel%-*}" -v release="${uke_kernel_krel##*-}.fc44" \
+            '$1 != version || $2 != release || $3 != "aarch64" { bad=1 } END { exit bad || NR != 3 }' \
+        || die 'Expected three matching Fedora 44 AArch64 kernel RPMs'
     kernel_release=$(rpm --root "$root" -q --qf '%{VERSION}-%{RELEASE}\n' senemos-uke-linux-kernel-mainline-core)
     [[ -d $root/usr/lib/modules/${kernel_release%.fc44} ]] || die 'Kernel module directory is absent'
     [[ $(rpm --root "$root" -q --qf '%{VERSION} %{RELEASE} %{ARCH}' uke-core-meta) == '1.0.4 1.fc44 aarch64' ]] || die 'Expected Fedora 44 Uke Core RPM'
@@ -104,7 +107,7 @@ if [[ ${1:-} == --inside ]]; then
         --setopt=install_weak_deps=False --setopt=localpkg_gpgcheck=False install \
         /hardware-rpms/uke-touchscreen-0.1.0-18.fc44.aarch64.rpm \
         /hardware-rpms/uke-battery-observer-1.1.0-*.fc44.aarch64.rpm \
-        /hardware-rpms/uke-boot-integration-1.5.2-*.fc44.aarch64.rpm \
+        "/hardware-rpms/uke-boot-integration-$uke_boot_rpm_release.aarch64.rpm" \
         /hardware-rpms/libssc-0.4.4-*.fc44.aarch64.rpm \
         /hardware-rpms/iio-sensor-proxy-3.9-*.fc44.aarch64.rpm \
         /hardware-rpms/uke-ssc-fileservice-2026.09.21-*.fc44.aarch64.rpm \
@@ -112,9 +115,10 @@ if [[ ${1:-} == --inside ]]; then
     phase_done hardware-packages
     rpm --root "$root" -q --qf '%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n' \
         uke-touchscreen uke-battery-observer uke-boot-integration | \
-        awk '($1 == "uke-touchscreen" && $2 == "0.1.0" && $3 == "18.fc44" && $4 == "aarch64") ||
+        awk -v boot="$uke_boot_rpm_release" \
+            '($1 == "uke-touchscreen" && $2 == "0.1.0" && $3 == "18.fc44" && $4 == "aarch64") ||
              ($1 == "uke-battery-observer" && $2 == "1.1.0" && $3 == "1.fc44" && $4 == "aarch64") ||
-             ($1 == "uke-boot-integration" && $2 == "1.5.2" && $3 == "4.fc44" && $4 == "aarch64") { good++ }
+             ($1 == "uke-boot-integration" && $2 "-" $3 == boot && $4 == "aarch64") { good++ }
              END { exit good != 3 || NR != 3 }' || die 'Expected three selected Fedora 44 hardware RPMs'
     rpm --root "$root" -q --qf '%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n' \
         libssc iio-sensor-proxy uke-ssc-fileservice uke-fedora44-oem-data | \
@@ -269,6 +273,8 @@ rpms=$(realpath -- "$rpms")
 core_rpm=$(realpath -- "$core_rpm")
 hardware_rpms=$(realpath -- "$hardware_rpms")
 blobs=$(realpath -- "$blobs")
+source "$here/src/image/fedora44-package-lock.sh"
+uke_boot_version=${uke_boot_rpm_release%-*.fc44}
 if [[ -n $base_rootfs ]]; then
     [[ $profile != tty ]] || die 'TTY rootfs cannot have a TTY base'
     base_rootfs=$(realpath -- "$base_rootfs")
@@ -277,15 +283,13 @@ if [[ -n $base_rootfs ]]; then
 fi
 output=$(realpath -m -- "$output")
 for part in core modules dtbs; do
-    mapfile -t matches < <(find "$rpms" -maxdepth 1 -type f -name "senemos-uke-linux-kernel-mainline-$part-7.2.11-*.fc44.aarch64.rpm" -print)
-    ((${#matches[@]} == 1)) || die "Expected one Fedora 44 7.2.11 $part RPM in $rpms"
+    mapfile -t matches < <(find "$rpms" -maxdepth 1 -type f -name "senemos-uke-linux-kernel-mainline-$part-$uke_kernel_rpm_release.aarch64.rpm" -print)
+    ((${#matches[@]} == 1)) || die "Expected one Fedora 44 $uke_kernel_krel $part RPM in $rpms"
     filename=$(basename -- "${matches[0]}")
-    [[ $filename =~ ^senemos-uke-linux-kernel-mainline-$part-7\.2\.11-([1-9][0-9]*)\.fc44\.aarch64\.rpm$ ]] || die "RPM filename mismatch: $part"
-    if [[ -z ${kernel_rpm_release:-} ]]; then kernel_rpm_release=${BASH_REMATCH[1]};
-    else [[ $kernel_rpm_release == "${BASH_REMATCH[1]}" ]] || die 'Kernel RPM releases differ'; fi
+    [[ $filename == "senemos-uke-linux-kernel-mainline-$part-$uke_kernel_rpm_release.aarch64.rpm" ]] || die "RPM filename mismatch: $part"
 done
 hardware_files=()
-for entry in 'uke-touchscreen:0.1.0' 'uke-console-input:3.6.0' 'uke-battery-observer:1.1.0' 'uke-boot-integration:1.5.2'; do
+for entry in 'uke-touchscreen:0.1.0' 'uke-console-input:3.6.0' 'uke-battery-observer:1.1.0' "uke-boot-integration:$uke_boot_version"; do
     IFS=: read -r package version <<< "$entry"
     mapfile -t matches < <(find "$hardware_rpms" -maxdepth 1 -type f -name "$package-$version-*.fc44.aarch64.rpm" -print)
     ((${#matches[@]} == 1)) || die "Expected one Fedora 44 $package RPM in $hardware_rpms"
@@ -298,6 +302,7 @@ for entry in 'libssc:0.4.4:aarch64' 'iio-sensor-proxy:3.9:aarch64' \
     ((${#matches[@]} == 1)) || die "Expected one Fedora 44 $package RPM in $hardware_rpms"
     hardware_files+=("${matches[0]}")
 done
+[[ -f $hardware_rpms/uke-boot-integration-$uke_boot_rpm_release.aarch64.rpm ]] || die "Expected Fedora 44 boot integration $uke_boot_rpm_release RPM"
 [[ -f $hardware_rpms/uke-fedora44-oem-data-3.0.304.0-2.fc44.noarch.rpm ]] || die 'Expected Fedora 44 OEM data RPM release 2'
 hardware_files+=("$hardware_rpms/uke-fedora44-oem-data-3.0.304.0-2.fc44.noarch.rpm")
 [[ ! -e $output ]] || die 'Output path already exists; select a new directory'
@@ -305,11 +310,11 @@ mkdir -p "$output"
 cache_dir=$here/build/cache
 mkdir -p "$cache_dir/dnf"
 trap 'printf "fedora44-rootfs: incomplete output retained at %s\n" "$output" >&2' ERR
-printf 'Fedora 44 %s; Linux 7.2.11-%s; source composition only\n' "$profile" "$kernel_rpm_release" > "$output/PROFILE"
+printf 'Fedora 44 %s; Linux %s; source composition only\n' "$profile" "$uke_kernel_krel" > "$output/PROFILE"
 printf '%s\n' "$profile" > "$output/PROFILE-ID"
 printf '%s\n' "$root_mib" > "$output/ROOT-MIB"
 printf '%s\n' "$panel" > "$output/TOUCH-PANEL"
-sha256sum "$rpms"/senemos-uke-linux-kernel-mainline-{core,modules,dtbs}-7.2.11-"$kernel_rpm_release".fc44.aarch64.rpm | \
+sha256sum "$rpms"/senemos-uke-linux-kernel-mainline-{core,modules,dtbs}-"$uke_kernel_rpm_release".aarch64.rpm | \
     sed "s|$rpms/||" > "$output/KERNEL-RPMS.sha256"
 printf '%s  %s\n' "$(sha256sum "$core_rpm" | cut -d ' ' -f1)" "$(basename -- "$core_rpm")" > "$output/CORE-RPM.sha256"
 sha256sum "${hardware_files[@]}" | sed "s|$hardware_rpms/||" > "$output/HARDWARE-RPMS.sha256"
@@ -339,6 +344,7 @@ base_mount=()
     -v "$here/src/boot-pair/android-sparse.cpp:/builder/android-sparse.cpp:ro" \
     -v "$here/configs/firstboot/uke-create-user:/builder/uke-create-user:ro" \
     -v "$here/configs/firstboot/uke-create-user.service:/builder/uke-create-user.service:ro" \
+    -v "$lock_file:/builder/package-lock.json:ro" \
     -v "$here/configs/images/uke-persist.fstab:/builder/uke-persist.fstab:ro" \
     -v "$here/configs/images/uke-ssc-fedora44.target:/builder/uke-ssc-fedora44.target:ro" \
     "$arm_image" bash /builder.sh --inside

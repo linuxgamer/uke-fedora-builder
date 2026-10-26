@@ -7,12 +7,13 @@ set -Eeuo pipefail
     exit 2
 }
 action=$1
+source "$(dirname -- "${BASH_SOURCE[0]}")/fedora44-package-lock.sh"
 top=$(realpath -- "$2")
 cd "$top"
 
 source_hash=$(find SOURCES SPECS -type f -print0 | LC_ALL=C sort -z | \
     xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
-release=7.2.11-35.fc44
+release=$uke_kernel_rpm_release
 rpm_paths=()
 for part in '' -core -modules -dtbs -boot; do
     path=RPMS/aarch64/senemos-uke-linux-kernel-mainline${part}-${release}.aarch64.rpm
