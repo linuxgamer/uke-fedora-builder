@@ -71,6 +71,8 @@ case $profile in
         ;;
     kde|plasma-mobile)
         grep -Eq '^upower[[:space:]]' "$output/packages.tsv" || fail 'UPower is missing from graphical rootfs'
+        grep -Eq '^bluedevil[[:space:]]' "$output/packages.tsv" || fail 'KDE Bluetooth integration is missing'
+        [[ -s $root/usr/share/applications/kcm_bluetooth.desktop ]] || fail 'KDE Bluetooth settings are missing'
         if grep -Eq '^uke-console-input[[:space:]]' "$output/packages.tsv"; then fail 'TTY keyboard RPM is in GUI inventory'; fi
         [[ ! -e $root/usr/bin/buffyboard && ! -L $root/usr/bin/buffyboard && \
            ! -e $root/usr/lib/systemd/system/uke-console-input.service && \
