@@ -343,20 +343,20 @@ if [[ -f $kernel_top/.fedora44-cross-pending ]]; then
     amd_image=$("$here/src/image/ensure-build-image.sh" "$container" linux/amd64)
     "$container" run --rm -i --network=host --platform linux/amd64 --security-opt label=disable \
         --label "org.uke-fedora.build-run=$UKE_BUILD_RUN_ID" \
+        -e UKE_KERNEL_KREL="$uke_kernel_krel" \
         -v "$cache_dir:/build-cache" -v "$workspace:/work" -w /work \
         "$amd_image" bash -s <<'CROSS_KERNEL'
 set -Eeuo pipefail
-source /work/uke-fedora-builder/src/image/fedora44-package-lock.sh
 top=/work/senemos-uke-kernel/build/srpm/rpmbuild
 source=$top/BUILD/senemos-uke-linux-kernel-mainline-7.2.11-build/linux-7.2.11
-[[ $(cat "$top/.fedora44-cross-pending") == "$uke_kernel_krel" ]] || exit 2
+[[ $(cat "$top/.fedora44-cross-pending") == "$UKE_KERNEL_KREL" ]] || exit 2
 export UKE_CROSS_KERNEL=1 UKE_CCACHE=1 CCACHE_DIR=/build-cache/ccache-cross CCACHE_MAXSIZE=10G
 export KBUILD_BUILD_USER=senemos KBUILD_BUILD_HOST=copr-builder KBUILD_BUILD_VERSION=1
 export SOURCE_DATE_EPOCH=1791725270
 KBUILD_BUILD_TIMESTAMP=$(date -u -d "@$SOURCE_DATE_EPOCH" '+%Y-%m-%d %H:%M:%S UTC')
 export KBUILD_BUILD_TIMESTAMP
 bash "$source/boot-recipe/src/boot/build-payload.sh" "$source" \
-    "$top/native-kernel-out" "$top/boot-userspace/base" "$uke_kernel_krel" 8
+    "$top/native-kernel-out" "$top/boot-userspace/base" "$UKE_KERNEL_KREL" 8
 CROSS_KERNEL
 
     "$container" run --rm -i --network=host --platform linux/arm64 --security-opt label=disable \
