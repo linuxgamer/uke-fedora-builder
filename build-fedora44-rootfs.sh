@@ -114,7 +114,7 @@ if [[ ${1:-} == --inside ]]; then
         uke-touchscreen uke-battery-observer uke-boot-integration | \
         awk '($1 == "uke-touchscreen" && $2 == "0.1.0" && $3 == "18.fc44" && $4 == "aarch64") ||
              ($1 == "uke-battery-observer" && $2 == "1.1.0" && $3 == "1.fc44" && $4 == "aarch64") ||
-             ($1 == "uke-boot-integration" && $2 == "1.5.2" && $3 == "3.fc44" && $4 == "aarch64") { good++ }
+             ($1 == "uke-boot-integration" && $2 == "1.5.2" && $3 == "4.fc44" && $4 == "aarch64") { good++ }
              END { exit good != 3 || NR != 3 }' || die 'Expected three selected Fedora 44 hardware RPMs'
     rpm --root "$root" -q --qf '%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n' \
         libssc iio-sensor-proxy uke-ssc-fileservice uke-fedora44-oem-data | \

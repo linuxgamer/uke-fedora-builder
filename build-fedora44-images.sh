@@ -262,7 +262,7 @@ for top in "${tops[@]}"; do
         rpmbuild -bp --nodeps --target aarch64 --define "_topdir /work/$top" "${specs[0]}"
         source=$top/BUILD/senemos-uke-linux-kernel-mainline-7.2.11-build/linux-7.2.11
         base=$top/boot-userspace
-        bash "$source/boot-recipe/src/boot/make-initramfs-base.sh" "$base" 7.2.11-34
+        bash "$source/boot-recipe/src/boot/make-initramfs-base.sh" "$base" 7.2.11-35
         clang++ -std=c++17 -O2 -Wall -Wextra -Werror -ffile-prefix-map="$PWD"=. \
             "$source/boot-recipe/src/boot/offline-switch-root.cpp" -o "$base/uke-offline-switch-root"
         clang++ -std=c++20 -O2 -Wall -Wextra -Werror \
@@ -270,7 +270,7 @@ for top in "${tops[@]}"; do
         for binary in uke-offline-switch-root boot-image-aarch64; do
             readelf -h "$base/$binary" | grep -E 'Machine:.*AArch64' >/dev/null
         done
-        printf '7.2.11-34\n' > "$top/.fedora44-cross-pending"
+        printf '7.2.11-35\n' > "$top/.fedora44-cross-pending"
         continue
     fi
     rpmbuild -ba --target aarch64 --define "_topdir /work/$top" "${specs[0]}"
@@ -338,14 +338,14 @@ if [[ -f $kernel_top/.fedora44-cross-pending ]]; then
 set -Eeuo pipefail
 top=/work/senemos-uke-kernel/build/srpm/rpmbuild
 source=$top/BUILD/senemos-uke-linux-kernel-mainline-7.2.11-build/linux-7.2.11
-[[ $(cat "$top/.fedora44-cross-pending") == 7.2.11-34 ]] || exit 2
+[[ $(cat "$top/.fedora44-cross-pending") == 7.2.11-35 ]] || exit 2
 export UKE_CROSS_KERNEL=1 UKE_CCACHE=1 CCACHE_DIR=/build-cache/ccache-cross CCACHE_MAXSIZE=10G
 export KBUILD_BUILD_USER=senemos KBUILD_BUILD_HOST=copr-builder KBUILD_BUILD_VERSION=1
 export SOURCE_DATE_EPOCH=1791725270
 KBUILD_BUILD_TIMESTAMP=$(date -u -d "@$SOURCE_DATE_EPOCH" '+%Y-%m-%d %H:%M:%S UTC')
 export KBUILD_BUILD_TIMESTAMP
 bash "$source/boot-recipe/src/boot/build-payload.sh" "$source" \
-    "$top/native-kernel-out" "$top/boot-userspace/base" 7.2.11-34 8
+    "$top/native-kernel-out" "$top/boot-userspace/base" 7.2.11-35 8
 CROSS_KERNEL
 
     "$container" run --rm -i --network=host --platform linux/arm64 --security-opt label=disable \
@@ -372,7 +372,7 @@ kernel_rpms=$output/kernel-rpms
 mkdir -p "$kernel_rpms"
 find "$kernel_rpms" -maxdepth 1 -type f -name 'senemos-uke-linux-kernel-mainline*.rpm' -delete
 for part in core modules dtbs; do
-    rpm=$kernel_top/RPMS/aarch64/senemos-uke-linux-kernel-mainline-$part-7.2.11-34.fc44.aarch64.rpm
+    rpm=$kernel_top/RPMS/aarch64/senemos-uke-linux-kernel-mainline-$part-7.2.11-35.fc44.aarch64.rpm
     [[ -s $rpm && ! -L $rpm ]] || die "Missing matched kernel RPM: $rpm"
     cp --reflink=auto -- "$rpm" "$kernel_rpms/"
 done
@@ -396,7 +396,7 @@ find "$hardware_rpms" -maxdepth 1 -type f -name '*.rpm' -delete
 cp "$workspace"/uke-linux-hardware-support/uke-sensors/build/rpmbuild/RPMS/aarch64/uke-touchscreen-0.1.0-18.fc44.aarch64.rpm "$hardware_rpms/"
 cp "$workspace"/uke-linux-hardware-support/uke-console-input/build/rpmbuild/RPMS/aarch64/uke-console-input-3.6.0-*.fc44.aarch64.rpm "$hardware_rpms/"
 cp "$workspace"/uke-linux-hardware-support/uke-platform-runtime/build/rpmbuild/RPMS/aarch64/uke-battery-observer-1.1.0-*.fc44.aarch64.rpm "$hardware_rpms/"
-cp "$workspace"/uke-linux-hardware-support/uke-boot/build/srpm/rpmbuild/RPMS/aarch64/uke-boot-integration-1.5.2-3.fc44.aarch64.rpm "$hardware_rpms/"
+cp "$workspace"/uke-linux-hardware-support/uke-boot/build/srpm/rpmbuild/RPMS/aarch64/uke-boot-integration-1.5.2-4.fc44.aarch64.rpm "$hardware_rpms/"
 cp "$workspace"/uke-linux-hardware-support/uke-sensors/build/srpm/libssc/rpmbuild/RPMS/aarch64/libssc-0.4.4-*.fc44.aarch64.rpm "$hardware_rpms/"
 cp "$workspace"/uke-linux-hardware-support/uke-sensors/build/srpm/iio-sensor-proxy/rpmbuild/RPMS/aarch64/iio-sensor-proxy-3.9-*.fc44.aarch64.rpm "$hardware_rpms/"
 cp "$workspace"/uke-linux-hardware-support/uke-sensors/build/srpm/uke-ssc-fileservice/rpmbuild/RPMS/aarch64/uke-ssc-fileservice-2026.09.21-*.fc44.aarch64.rpm "$hardware_rpms/"
