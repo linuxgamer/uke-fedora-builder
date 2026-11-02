@@ -59,7 +59,13 @@ awk -F: '$2!="*" && $2!="!" && $2!="!*" && $2!="!!" {exit 1}' /etc/shadow
 [[ -z $(dpkg-query -W -f='${binary:Package}\n' | grep -Ei '(^|[-:])(python[0-9.]*|libpython[0-9.]*)(-|:|$)' || true) ]]
 find /usr /opt /etc -type f \( -name '*.py' -o -name '*.pyc' -o -name '*.pyo' \) -print > "$inputs/rejected-python-files.txt"
 if [[ -s $inputs/rejected-python-files.txt ]]; then cat "$inputs/rejected-python-files.txt" >&2; exit 1; fi
-[[ ! -e /etc/ssh/ssh_host_rsa_key && ! -e /root/.ssh ]]
+[[ -z $(find /etc/ssh -maxdepth 1 -type f -name 'ssh_host_*' -print -quit) ]]
+# systemd's stock provision.conf creates this empty protected directory.
+# Its existence is not a credential; any populated entry is rejected.
+if [[ -e /root/.ssh || -L /root/.ssh ]]; then
+ [[ -d /root/.ssh && ! -L /root/.ssh && $(stat -c %u /root/.ssh) == 0 && $(stat -c %a /root/.ssh) == 700 ]]
+ [[ -z $(find /root/.ssh -mindepth 1 -print -quit) ]]
+fi
 [[ $(sha256sum /usr/lib/firmware/qcom/uke/audio/fs19xx.fsm | cut -d' ' -f1) == f319e71d60ed19d539296665fa06cc07fbcf93bf82f773c787bed65289129e7b ]]
 dpkg-query -W -f='${binary:Package}\t${Version}\t${Architecture}\n' > "$inputs/root-packages.tsv"
 apt-cache policy uke-speaker-firmware > "$inputs/ppa-policy.txt"
