@@ -1,0 +1,16 @@
+[Unit]
+Description=Verify Ubuntu AppArmor policy enforcement and exact Uke kernel
+Requires=apparmor.service
+After=apparmor.service local-fs.target
+Before=multi-user.target
+OnFailure=emergency.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/uke-apparmor-probe
+RemainAfterExit=yes
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+RequiredBy=multi-user.target

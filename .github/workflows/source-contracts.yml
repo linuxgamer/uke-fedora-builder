@@ -34,6 +34,8 @@ jobs:
           bash tests/public-build-contract.sh
           shellcheck tests/distribution-routing.sh
           bash tests/distribution-routing.sh
+          shellcheck src/ubuntu/configure-root.sh tests/ubuntu-root-contract.sh
+          bash tests/ubuntu-root-contract.sh
           bash tests/public-channel-contract.sh
           shellcheck src/public/languages.sh tests/languages.sh
           bash tests/languages.sh
