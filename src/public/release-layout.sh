@@ -180,61 +180,76 @@ release_stage() {
     release_verify "$delivery"
     release_inventory "$delivery" > "$delivery/receipts/images.tsv"
 }
-# Markdown backticks are literal; printf supplies the variable fields.
+release_title() {
+    local delivery=$1 version day revision iso
+    version=$(jq -er .version "$delivery/receipts/layout.json")
+    day=$(jq -er .date "$delivery/receipts/layout.json")
+    revision=$(jq -er .revision "$delivery/receipts/layout.json")
+    [[ $version != rawhide ]] || version=Rawhide
+    iso=20${day:4:2}-${day:2:2}-${day:0:2}
+    date -d "$iso" +%F >/dev/null
+    printf 'Fedora %s for Xiaomi Pad 7 and POCO Pad X1 - Senemos %s R%s (TESTING)' "$version" "$iso" "$revision"
+}
+# Markdown backticks are literal; printf supplies validated metadata fields.
 # shellcheck disable=SC2016
 release_body() {
-    local delivery=$1 inventory=$2 file bytes sha boot version revision day source example runs run manifest
+    local delivery=$1 inventory=$2 file bytes sha boot revision day source example runs run manifest repo tag url desktops report boot_bytes
+    repo=${GITHUB_REPOSITORY:-MCC45TR/uke-linux}
+    [[ $repo =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || release_fail 'Invalid release repository'
     boot=$(jq -er .boot "$delivery/receipts/layout.json")
-    version=$(jq -er .version "$delivery/receipts/layout.json")
+    tag=$(jq -er .tag "$delivery/receipts/layout.json")
     revision=$(jq -er .revision "$delivery/receipts/layout.json")
     day=$(jq -er .date "$delivery/receipts/layout.json")
+    url=https://github.com/$repo/releases/download/$tag
     source=$(sha256sum "$delivery/receipts/cohort.json"); source=${source%% *}
-    printf 'Fedora %s AArch64 experimental Uke Senemos images, %s r%s.\n\n' "$version" "$day" "$revision"
+    printf '# %s\n\n**Experimental Alpha · AArch64 · Linux `%s`**\n\n' "$(release_title "$delivery")" "$(jq -er .kernel_release "$delivery/receipts/cohort.json")"
     printf '<!-- uke-image-cohort-sha256: %s -->\n\n' "$source"
     runs=${UKE_RELEASE_BUILD_RUNS:-${GITHUB_RUN_ID:-}}
     if [[ -n $runs ]]; then
         [[ $runs =~ ^[0-9]+(,[0-9]+)*$ ]] || release_fail 'Invalid build record IDs'
         printf '<!-- uke-image-build-runs: %s -->\n\n' "$runs"
     fi
-    printf 'Boot is shared across desktops only after byte equality and the kernel/module/DT/root cohort agree. Host verification does not qualify tablet boot, first-account setup, firmware compatibility or rollback.\n\n'
+    desktops=$(jq -sr 'map(.desktop)|sort|join(",")' "$delivery/receipts/images/"*.json)
+    if [[ $desktops == gnome,kde ]]; then
+        printf 'Fedora Rawhide for Xiaomi Pad 7 and POCO Pad X1, with two independently composed desktop choices: **GNOME** and **KDE Plasma**. Both use the same verified core and byte-identical boot. NextKDE and Cutefish are suspended.\n\n'
+    else printf 'Desktop choices in this verified delivery: `%s`. Install one root with its matching shared boot.\n\n' "$desktops"; fi
+    printf '## Downloads\n\nChoose one desktop. Sizes are the actual compressed file sizes.\n\n| Desktop | Compressed image | Size (bytes) |\n| --- | --- | ---: |\n'
+    while IFS=$'\t' read -r file bytes sha; do
+        [[ $file != "$boot" ]] || continue
+        case $file in *-kde-plasma-*) example='KDE Plasma';; *-gnome-*) example=GNOME;; *) example=Desktop;; esac
+        printf '| %s | [%s](%s/%s) | %s |\n' "$example" "$file" "$url" "$file" "$bytes"
+    done < "$inventory"
+    boot_bytes=$(awk -F '\t' -v name="$boot" '$1==name {print $2}' "$inventory")
+    printf '\n**Shared boot:** [%s](%s/%s) — %s bytes. Use it only with a root from this verified cohort.\n\n## SHA256\n\n| Image | Bytes | SHA256 |\n| --- | ---: | --- |\n' "$boot" "$url" "$boot" "$boot_bytes"
+    while IFS=$'\t' read -r file bytes sha; do printf '| `%s` | %s | `%s` |\n' "$file" "$bytes" "$sha"; done < "$inventory"
+    printf '\nCompare `sha256sum FILE` with the table before extraction or installation.\n\n## Advanced installation\n\n**Flashing userdata erases its existing Android or Linux system, apps, files and encryption metadata. Back up needed data first.** Keep your own matching backups and a working recovery route; changing slots does not restore userdata.\n\n'
+    printf 'Read the [installation and recovery documentation](https://github.com/%s/blob/Fedora/README.md). Confirm the documented Uke product/variant, compatible stock **slot-B firmware**, and the intended boot target. Do not copy firmware or partition layouts from another device.\n\n' "$repo"
+    printf 'In fastboot mode, inspect these values and stop if they do not match the documented device and installation plan:\n\n```sh\nfastboot getvar product\nfastboot getvar current-slot\nfastboot getvar partition-size:userdata\nfastboot getvar partition-size:boot_b\n```\n\n'
+    printf 'Required userdata capacity: **%s bytes** or more; boot_b: **%s bytes** or more. Verify product `uke` against the documented Xiaomi/POCO variant mapping and compatible B firmware before writes.\n\n' "$(jq -er .root_raw_bytes "$delivery/receipts/cohort.json")" "$boot_bytes"
+    example=$(awk -F '\t' '$1 ~ /-system-.*\.img\.zst$/ {print $1;exit}' "$inventory")
+    [[ -n $example ]] || release_fail 'No system image in checksum inventory'
+    printf 'After all checks, choose one desktop root. This example uses `%s`; extraction and each write must succeed before slot selection and reboot:\n\n```sh\n' "$example"
+    printf 'zstd -d --keep %s -o system.img && \\\nfastboot flash userdata system.img && \\\nfastboot flash boot_b %s && \\\nfastboot set_active b && \\\nfastboot reboot\n```\n\n' "$example" "$boot"
+    printf 'Do not run `fastboot -w` or format userdata afterwards. Preserve stock early firmware and calibration partitions. The builder performs no tablet writes.\n\nEXT4 initially occupies the image capacity. Original systemd-growfs expands it to the measured userdata capacity before setup; the independent capacity gate remains enforced. Disk swap uses half physical RAM, or a valid unique linux_swap partition. Fastboot itself does not resize EXT4. KDE uses Plasma Setup; GNOME uses GNOME Initial Setup. These two images contain no preset human account; SSH is disabled.\n\n## After installation\n\n```sh\nsudo dnf update --refresh\n```\n\nUse the configured signed Fedora/COPR repositories. Kernel updates must retain matched Uke kernel, modules, DT and boot packages. Do not mix a generic Fedora kernel or an unrelated boot image with these roots. Automatic kernel activation is disabled; follow the documented guarded updater procedure rather than assuming a package update has safely activated new boot bytes.\n\n## Testing status\n\nAutomated checks cover signatures, matching kernel/module/DT/boot payloads, complete RPM translations including Turkish/help/Qt catalogs, EXT4 contents, ownership and SELinux metadata. These checks do not certify device runtime, first-account setup, full-capacity growth, swap, input, graphics, firmware compatibility or rollback.\n\n'
+    report=$(dirname -- "${BASH_SOURCE[0]}")/../../docs/release-testing/$day-r$revision.md
+    if [[ -f $report && ! -L $report ]]; then cat "$report"; printf '\n'
+    else printf 'No release-specific physical test report is recorded here. Report the device variant, desktop, exact hashes and logs; do not infer hardware acceptance from build success.\n\n'; fi
+    if grep -q -- '-cutefish-uke-senemos-system-' "$inventory"; then
+        printf '**Historical Cutefish image only:** public test account `senemos`, initial password `fedora`; GDM requires a password change. Automatic login, remote password login and passwordless sudo are disabled.\n\n'
+    elif [[ ${UKE_ALLOW_MISSING_CUTEFISH:-0} == 1 ]]; then printf '**Cutefish is currently unavailable.** Its separate validation must pass before a compatible image is added.\n\n'; fi
+    printf '## Build evidence and support\n\nKernel source: `%s`; signer: `%s`; COPR RPM version-release: `%s%s`.\n\n' "$(jq -er .kernel_source_commit "$delivery/receipts/cohort.json")" "$(jq -er .kernel_key_fingerprint "$delivery/receipts/cohort.json")" "$(jq -er .rpm_version_release "$delivery/receipts/cohort.json")" "$(jq -er .rpm_dist "$delivery/receipts/cohort.json")"
     for manifest in "$delivery/receipts/images/"*.json; do
         if jq -e '.shared_core_producer_run_id and .shared_core_producer_workspace_commit' "$manifest" >/dev/null; then
-            printf 'Frozen common core: workspace `%s`, builder `%s`, successful core job in Actions run `%s`, archive SHA256 `%s`. Desktop composition records its consumer revision separately.\n\n' \
-                "$(jq -er .shared_core_producer_workspace_commit "$manifest")" "$(jq -er .shared_core_producer_builder_commit "$manifest")" \
-                "$(jq -er .shared_core_producer_run_id "$manifest")" "$(jq -er .shared_core_sha256 "$manifest")"
+            printf 'Original core workspace `%s`, builder `%s`, archive SHA256 `%s`. Consumer revisions and exact inventories remain in Actions receipts; publication does not rebuild or upgrade the images.\n\n' "$(jq -er .shared_core_producer_workspace_commit "$manifest")" "$(jq -er .shared_core_producer_builder_commit "$manifest")" "$(jq -er .shared_core_sha256 "$manifest")"
             break
         fi
     done
-    printf 'Kernel cohort: `%s`; source `%s`; signer `%s`. Required userdata capacity: **%s bytes**.\n\n' \
-        "$(jq -r .kernel_release "$delivery/receipts/cohort.json")" "$(jq -r .kernel_source_commit "$delivery/receipts/cohort.json")" \
-        "$(jq -r .kernel_key_fingerprint "$delivery/receipts/cohort.json")" "$(jq -r .root_raw_bytes "$delivery/receipts/cohort.json")"
-    printf '| Image | Bytes | SHA256 |\n| --- | ---: | --- |\n'
-    while IFS=$'\t' read -r file bytes sha; do
-        printf '| `%s` | %s | `%s` |\n' "$file" "$bytes" "$sha"
-    done < "$inventory"
-    printf '\nDownload the images and compare `sha256sum FILE` with the table before installation. Verify product `uke`, matching slot-B stock firmware, partition capacities, your own backups and a working recovery route.\n\n'
-    example=$(awk -F '\t' '$1 ~ /-system-.*\.img\.zst$/ {print $1;exit}' "$inventory")
-    [[ -n $example ]] || release_fail 'No system image in checksum inventory'
-    printf '**Flashing userdata destroys Android apps, files and encryption metadata.** Choose one desktop root. Example using `%s`, after checksum verification and the device checks:\n\n```sh\n' "$example"
-    printf 'zstd -d %s -o system.img\nfastboot getvar product\nfastboot getvar current-slot\nfastboot getvar partition-size:userdata\nfastboot getvar partition-size:boot_b\nfastboot flash userdata system.img\nfastboot flash boot_b %s\n```\n\n' "$example" "$boot"
-    printf 'Confirm boot_b is the intended target and retain matching slot-B firmware. Slot selection and reboot are separate manual steps in the verified device-specific procedure.\n\n'
-    printf 'Preserve stock early firmware and calibration partitions. Restore only your own matching backups through your verified recovery route; changing slots alone does not restore userdata. No device write was performed by the builder.\n\n'
-    printf 'Automatic kernel activation and SSH remain disabled. No private touch reference is included; firmware redistribution review remains required. KDE Plasma uses Plasma Setup; GNOME uses GNOME Initial Setup.\n\n'
-    if [[ ${UKE_DESKTOP_SET_POLICY:-} == gnome-plasma ]]; then
-        printf 'This revision supports GNOME and KDE Plasma only; NextKDE and Cutefish are suspended. All RPM translations, including localized help, Turkish setup/desktop and Qt catalogs, are retained. Missing payloads trigger exact-owner RPM reinstallation and a complete re-audit; the independently read-back filesystem receives the same complete translation audit.\n\n'
-        printf 'Ordinary fastboot installation is used; no computer helper is required. At first boot, original systemd-growfs expands EXT4 to the actual userdata partition capacity. A separate read-only capacity gate must pass before disk swap and graphical setup. Do not interrupt filesystem growth. The existing Uke swap manager uses half physical RAM for a managed disk swap file, or preserves a valid unique linux_swap partition. No zram swap is added. Initial image capacity is not the final partition capacity. Physical boot, growth and swap acceptance on the tablet remain pending.\n\n'
-    fi
-    if grep -q -- '-cutefish-uke-senemos-system-' "$inventory"; then
-        printf '**Cutefish only:** public test login `senemos`, initial password `fedora`. GDM requires a password change at first login. The real GDM worker/PAM change-password conversation was tested during assembly; the tablet graphical login remains unqualified. Automatic login, remote password login and passwordless sudo are disabled. Change the published test password before use.\n\n'
-    elif [[ ${UKE_ALLOW_MISSING_CUTEFISH:-0} == 1 ]]; then
-        printf '**Cutefish is currently unavailable.** Its separate validation must succeed before a compatible image is added. KDE Plasma, GNOME and NextKDE passed their independent image checks.\n\n'
-    fi
-    printf 'Exact manifests, RPM inventories, checksums and diagnostics remain in Actions artifacts, separately from the image-only release assets.\n'
-    if [[ -n ${GITHUB_REPOSITORY:-} && -n $runs ]]; then
+    if [[ -n $runs ]]; then
         local -a run_ids=()
         IFS=, read -r -a run_ids <<< "$runs"
-        for run in "${run_ids[@]}"; do printf '\nBuild and artifact records: https://github.com/%s/actions/runs/%s\n' "$GITHUB_REPOSITORY" "$run"; done
+        for run in "${run_ids[@]}"; do printf '[Actions build/artifact evidence %s](https://github.com/%s/actions/runs/%s)\n\n' "$run" "$repo" "$run"; done
     fi
+    printf '[README](https://github.com/%s/blob/Fedora/README.md) · [Report or follow issues](https://github.com/%s/issues)\n\nOnly image files are release assets. Manifests, inventories and diagnostics remain in Actions artifacts.\n' "$repo" "$repo"
 }
 if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
     command=${1:-}; shift || :

@@ -7,7 +7,7 @@ layout_tool=$builder/src/public/release-layout.sh
 delivery=$(realpath -- "${1:?Expected delivery directory}")
 : "${GITHUB_REPOSITORY:?Expected owner/repository}" "${SOURCE_COMMIT:?Expected immutable source commit}" "${GITHUB_RUN_ID:?Expected Actions build record}"
 [[ $GITHUB_REPOSITORY =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ && $SOURCE_COMMIT =~ ^[0-9a-f]{40}$ && $GITHUB_RUN_ID =~ ^[0-9]+$ ]]
-export UKE_RELEASE_BUILD_RUNS=$GITHUB_RUN_ID
+export UKE_RELEASE_BUILD_RUNS=${UKE_RELEASE_BUILD_RUNS:-$GITHUB_RUN_ID}
 # shellcheck source=../src/public/release-layout.sh
 # shellcheck disable=SC1091
 source "$layout_tool"
@@ -92,7 +92,7 @@ if ((existing)); then
 else
     [[ ${UKE_REQUIRE_EXISTING_RELEASE:-0} != 1 ]] || release_fail 'The existing release must be published first'
     jq -n --arg tag "$tag" --arg target "$SOURCE_COMMIT" --rawfile body "$work/notes.md" \
-        --arg title "Fedora $(jq -r .version "$delivery/receipts/layout.json") Uke Senemos · $(jq -r .date "$delivery/receipts/layout.json") r$(jq -r .revision "$delivery/receipts/layout.json")" \
+        --arg title "$(release_title "$delivery")" \
         '{tag_name:$tag,target_commitish:$target,name:$title,body:$body,draft:true,prerelease:true}' > "$work/create.json"
     # Use the creation response's stable ID. Unpublished drafts may have an
     # untagged URL and be absent from both by-tag and immediate list lookups.

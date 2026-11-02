@@ -46,7 +46,10 @@ this singleboot profile. Images remain experimental pre-releases.
 The publisher verifies local image hashes and the GitHub asset digests. Existing
 drafts are recovered from the authenticated release list and verified by numeric
 ID because GitHub's by-tag endpoint omits unpublished drafts. Installation examples
-leave slot selection and reboot to the verified device-specific procedure.
+require product/capacity checks, backups and compatible slot-B firmware first.
+Extraction, userdata and boot_b writes, active-slot B selection and reboot form
+a conditional success chain; a failed command stops the sequence. The generator
+never executes tablet commands.
 Existing
 releases without the new cohort/build-record markers or containing legacy
 metadata assets are preserved and rejected as append targets. Migration of a

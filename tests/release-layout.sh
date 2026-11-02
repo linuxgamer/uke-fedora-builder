@@ -91,6 +91,18 @@ bash "$merge" "$work/complete-set" "$core_sha" "$work/set-delivery-"{kde,gnome,c
 [[ $(find "$work/complete-set/assets" -type f | wc -l) == 5 ]]
 env UKE_DESKTOP_SET_POLICY=gnome-plasma bash "$merge" "$work/two-desktops" "$core_sha" "$work/set-delivery-"{kde,gnome}
 [[ $(find "$work/two-desktops/assets" -type f | wc -l) == 3 ]]
+# The current template derives names/date/kernel from this delivery and retains
+# partial user testing and an unresolved device report without a blanket claim.
+bash "$tool" stage "$work/set-kde" "$work/r4-template" 021126 4
+bash "$tool" stage "$work/set-gnome" "$work/r4-template" 021126 4
+env GITHUB_REPOSITORY=MCC45TR/uke-linux UKE_RELEASE_BUILD_RUNS=41430801872 bash "$tool" body "$work/r4-template" "$work/r4-template/receipts/images.tsv" > "$work/r4-template.md"
+grep -Fq 'Senemos 2026-11-02 R4 (TESTING)' "$work/r4-template.md"
+grep -Fq 'two independently composed desktop choices: **GNOME** and **KDE Plasma**' "$work/r4-template.md"
+grep -Fq "Linux \`7.3.1-115\`" "$work/r4-template.md"
+grep -Fq 'releases/download/fedora-rawhide-uke-senemos-021126-r4/fedora-rawhide-gnome-uke-senemos-system-021126-r4.img.zst' "$work/r4-template.md"
+grep -Fq 'stopping at the Mi logo and returning to recovery' "$work/r4-template.md"
+grep -Fq 'positive user report, not complete hardware qualification' "$work/r4-template.md"
+grep -Fq 'unpublished Qt/Kirigami application work is not included' "$work/r4-template.md"
 reject env UKE_DESKTOP_SET_POLICY=gnome-plasma bash "$merge" "$work/wrong-two-desktops" "$core_sha" "$work/set-delivery-"{kde,nextkde}
 reject bash "$merge" "$work/incomplete-set" "$core_sha" "$work/set-delivery-"{kde,gnome,cutefish}
 reject bash "$merge" "$work/duplicate-set" "$core_sha" "$work/set-delivery-"{kde,gnome,cutefish,kde}
@@ -197,7 +209,8 @@ UKE_REQUIRE_DESKTOP_SET=1 UKE_EXPECTED_CORE_SHA=$core_sha reject bash "$publishe
 [[ ! -e $UKE_GH_STATE/calls ]]
 UKE_HIDE_DRAFT_LIST=1 bash "$publisher" "$work/kde-only"
 jq -e '.draft==false and (.assets|length==2) and all(.assets[]; .name|test("[.]img([.]zst)?$")) and (.body|contains("| Image | Bytes | SHA256 |"))' "$work/remote/release.json" >/dev/null
-jq -e '(.body|contains("fastboot set_active")|not) and (.body|contains("fastboot reboot")|not)' "$work/remote/release.json" >/dev/null
+jq -e '.name=="Fedora Rawhide for Xiaomi Pad 7 and POCO Pad X1 - Senemos 2026-11-01 R0 (TESTING)"' "$work/remote/release.json" >/dev/null
+jq -e '(.body|contains("fastboot set_active b &&")) and (.body|contains("fastboot reboot")) and (.body|contains("fastboot flash boot_b")) and (.body|contains("sudo dnf update --refresh")) and (.body|contains("Experimental Alpha"))' "$work/remote/release.json" >/dev/null
 bash "$tool" stage "$work/gnome" "$work/gnome-only" 011126 0
 export GITHUB_RUN_ID=456
 jq '.draft=true' "$work/remote/release.json" > "$work/draft.json"
