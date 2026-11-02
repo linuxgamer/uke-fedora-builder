@@ -12,7 +12,7 @@ grep -Fxq 'ExecStart=/usr/libexec/uke-apparmor-probe' "$here/uke-apparmor-verify
 grep -Fq 'context != "uke-apparmor-probe (enforce)\n"' "$here/apparmor-probe.cpp"
 grep -Fq 'errno != EACCES' "$here/apparmor-probe.cpp"
 grep -Fxq '  audit deny /etc/uke-test/denied r,' "$here/uke-apparmor-probe.profile"
-! grep -Eq 'flags=.*complain|apparmor=0|selinux=0|setenforce|aa-complain|--disable|--unconfined|--autologin|NOPASSWD' "$here/"*
-! grep -Fq -- '--vm-policy-test' "$here/uke-apparmor-verify.service"
-! grep -Eq 'useradd|chpasswd|passwd -|ssh-keygen|bootctl|fastboot|efibootmgr|/dev/(sd|nvme|block)' "$here/configure-root.sh"
+if grep -Eq 'flags=.*complain|apparmor=0|selinux=0|setenforce|aa-complain|--disable|--unconfined|--autologin|NOPASSWD' "$here/"*; then exit 1; else [[ $? == 1 ]]; fi
+if grep -Fq -- '--vm-policy-test' "$here/uke-apparmor-verify.service"; then exit 1; else [[ $? == 1 ]]; fi
+if grep -Eq 'useradd|chpasswd|passwd -|ssh-keygen|bootctl|fastboot|efibootmgr|/dev/(sd|nvme|block)' "$here/configure-root.sh"; then exit 1; else [[ $? == 1 ]]; fi
 echo 'Ubuntu root policy loader, denial probe, exact-cohort and credential-free contracts pass; runtime remains separate.'

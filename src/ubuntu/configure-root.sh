@@ -37,7 +37,6 @@ printf 'LABEL=UKE_LINUX / ext4 defaults 0 1\n' > /etc/fstab
 printf 'uke-ubuntu-test\n' > /etc/hostname
 printf '127.0.0.1 localhost\n127.0.1.1 uke-ubuntu-test\n' > /etc/hosts
 printf 'LANG=C.UTF-8\n' > /etc/default/locale
-ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
 # Retain distribution account locks. No test password, autologin, SSH server,
 # SSH key, remote shell or sudo exemption is created.
 awk -F: '$2!="*" && $2!="!" && $2!="!*" && $2!="!!" {exit 1}' /etc/shadow
