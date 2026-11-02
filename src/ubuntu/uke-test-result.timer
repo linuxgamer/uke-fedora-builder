@@ -1,0 +1,9 @@
+[Unit]
+Description=Refresh the Ubuntu diagnostic screen after early boot messages
+
+[Timer]
+OnBootSec=60s
+Unit=uke-test-result.service
+
+[Install]
+WantedBy=timers.target

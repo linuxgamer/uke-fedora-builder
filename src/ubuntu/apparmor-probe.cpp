@@ -2,6 +2,7 @@
 // Read-only boot diagnostic. A successful policy load alone is insufficient.
 #include <sys/stat.h>
 #include <sys/utsname.h>
+#include <sys/vfs.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <cerrno>
@@ -28,6 +29,11 @@ int main(int argc, char** argv) {
         std::fputs("UKE_UBUNTU_CORE_REJECTED: mismatched kernel cohort\n", stderr);
         return 1;
     }
+    struct statfs root {};
+    if (statfs("/", &root) != 0 || root.f_type != 0xEF53) {
+        std::fputs("UKE_UBUNTU_CORE_REJECTED: expected EXT4 root\n", stderr);
+        return 1;
+    }
     auto enabled = read_text("/sys/module/apparmor/parameters/enabled");
     auto lsm = read_text("/sys/kernel/security/lsm");
     auto context = read_text("/proc/self/attr/apparmor/current");
@@ -45,7 +51,7 @@ int main(int argc, char** argv) {
     int fd = open("/etc/uke-test/denied", O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
     if (fd >= 0) { close(fd); return 1; }
     if (errno != EACCES) return 1;
-    std::printf("UKE_UBUNTU_CORE_PASS: scope=%s kernel=%s AppArmor=active profile=enforce allowed-read=pass denied-read=EACCES\n",
+    std::printf("UKE_UBUNTU_CORE_PASS: scope=%s kernel=%s AppArmor=active profile=enforce allowed-read=pass denied-read=EACCES rootfs=ext4\n",
                 vm ? "generic-kernel-VM-policy-only" : "exact-1006u2-runtime", kernel.release);
     return 0;
 }

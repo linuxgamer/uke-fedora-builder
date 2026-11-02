@@ -3,7 +3,7 @@ Description=Verify Ubuntu AppArmor policy enforcement and exact Uke kernel
 Requires=apparmor.service
 After=apparmor.service local-fs.target
 Before=multi-user.target
-OnFailure=emergency.target
+OnFailure=emergency.target uke-test-result.service
 
 [Service]
 Type=oneshot

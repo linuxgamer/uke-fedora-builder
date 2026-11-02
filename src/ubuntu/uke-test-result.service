@@ -1,0 +1,19 @@
+[Unit]
+Description=Display a noninteractive Ubuntu boot test result
+After=uke-apparmor-verify.service
+
+[Service]
+Type=oneshot
+StateDirectory=uke-ubuntu-test
+StateDirectoryMode=0755
+ExecStart=/usr/libexec/uke-test-result
+StandardInput=null
+StandardOutput=tty
+StandardError=journal+console
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=no
+
+[Install]
+WantedBy=multi-user.target

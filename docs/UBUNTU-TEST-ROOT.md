@@ -10,6 +10,8 @@ Ubuntu libstdc++ includes optional GDB Python printers. Explicit dpkg path
 exclusions omit only that debugger support directory and its libstdc++ GDB
 auto-load script; the native library, metadata and notices remain unchanged.
 The final audit still rejects Python runtimes or any other Python source/bytecode.
+The optional Ubuntu Apport Python crash-report hooks are also excluded. Their
+original notices remain; AppArmor policy, parser and loader are unchanged.
 
 The stock Ubuntu AppArmor service loads distribution policy plus one bounded
 read-only diagnostic profile. A required unit checks the exact kernel release,
@@ -19,6 +21,20 @@ failed loading/enforcement prevents the normal multi-user target and requests
 the distribution emergency target. No complain-mode fallback is provided.
 This checks enforcement for the probe; it does not assert that every process
 is confined. Original distribution profiles remain unchanged.
+
+The visible VT is reserved for a noninteractive result screen. It displays
+kernel/root filesystem and policy/probe states, with no input handler, login or
+remote shell. A successful probe must actually read the allowed fixture and
+receive EACCES for the denied fixture. Failed loading or enforcement displays a
+failure result while normal startup remains blocked. The same short report is
+stored at `/var/lib/uke-ubuntu-test/result.txt`. A photograph is the initial
+retrieval method and requires no keyboard. If framebuffer/DT/console handoff
+works, a one-time refresh after 60 seconds restores the report over early boot
+messages. If framebuffer/DT/console handoff
+fails, this profile provides no remote log retrieval; the absence of a screen
+cannot identify the failing boot stage. Recovering the stored report would
+require a separately authorized read-only recovery procedure. No recovery or
+tablet access is performed by the image build.
 
 The same policy may be tested separately in a generic-kernel ARM64 VM. Only
 the disposable VM copy adds `--vm-policy-test`; this identifies that narrower
