@@ -18,8 +18,8 @@ public_capacity_command() {
     cat <<'COMMAND'
 set -o pipefail
 test "$(/usr/libexec/senemos-uke/uke-install-profile check)" = userdata
-test "$(findmnt -n -o FSTYPE /)" = ext4
-devno=$(findmnt -n -o MAJ:MIN /)
+test "$(findmnt -rn -o FSTYPE /)" = ext4
+devno=$(findmnt -rn -o MAJ:MIN /)
 [[ $devno =~ ^[0-9]+:[0-9]+$ ]]
 device=/dev/block/$devno
 test -b "$device"

@@ -16,6 +16,16 @@ reject public_ext4_full_capacity 0 1 4096
 reject public_ext4_full_capacity 999999999999999999999999 1 4096
 reject public_ext4_full_capacity 8589934592 2097152 0
 reject public_ext4_full_capacity '1; exit 0' 1 4096
+# Use the real distribution formatter: its aligned MAJ:MIN column contains
+# padding even with --noheadings. A mocked unpadded string misses this failure.
+printf '10 1 8:32 / / rw,relatime - ext4 /dev/sda32 rw\n' > "$work/mountinfo"
+aligned=$(findmnt -kn -F "$work/mountinfo" -o MAJ:MIN /)
+raw=$(findmnt -krn -F "$work/mountinfo" -o MAJ:MIN /)
+[[ $aligned != "$raw" && $raw == 8:32 ]]
+[[ ! $aligned =~ ^[0-9]+:[0-9]+$ && $raw =~ ^[0-9]+:[0-9]+$ ]]
+public_capacity_command > "$work/capacity-command"
+grep -Fxq "devno=\$(findmnt -rn -o MAJ:MIN /)" "$work/capacity-command"
+grep -Fxq "test \"\$(findmnt -rn -o FSTYPE /)\" = ext4" "$work/capacity-command"
 truncate -s 32M "$work/ext4.raw"
 mkfs.ext4 -q -F -L UKE_LINUX "$work/ext4.raw"
 printf 'retained payload\n' > "$work/payload"
