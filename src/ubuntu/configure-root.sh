@@ -17,6 +17,7 @@ printf 'path-exclude=/usr/share/gcc/python/*\npath-exclude=/usr/share/gdb/auto-l
 install -Dm644 "$inputs/ppa.gpg" /usr/share/keyrings/uke-linux-unstable.gpg
 printf 'deb [arch=arm64 signed-by=/usr/share/keyrings/uke-linux-unstable.gpg] https://ppa.launchpadcontent.net/mcs45tr/uke-linux-unstable/ubuntu tenacious main\n' > /etc/apt/sources.list.d/uke-linux-unstable.list
 apt-get update
+apt-get install -y --no-install-recommends --reinstall libstdc++6
 apt-get install -y --no-install-recommends systemd-sysv systemd-resolved udev dbus apparmor ca-certificates e2fsprogs util-linux kmod iproute2 libpam-systemd locales fonts-dejavu-core console-setup-linux uke-speaker-firmware
 # These are locally built, fully verified native artifact DEBs. APT keeps the
 # exact inter-package dependencies; no fake kernel/firmware ABI is supplied.
