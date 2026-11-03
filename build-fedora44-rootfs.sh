@@ -87,7 +87,7 @@ if [[ ${1:-} == --inside ]]; then
         --setopt=install_weak_deps=False --setopt=localpkg_gpgcheck=False install \
         fedora-release basesystem bash coreutils systemd systemd-pam systemd-udev \
         NetworkManager dnf5 sudo shadow-utils util-linux kmod python3 \
-        e2fsprogs selinux-policy-targeted \
+        e2fsprogs selinux-policy-targeted zram-generator \
         /kernel-rpms/senemos-uke-linux-kernel-mainline-core-*.rpm \
         /kernel-rpms/senemos-uke-linux-kernel-mainline-modules-*.rpm \
         /kernel-rpms/senemos-uke-linux-kernel-mainline-dtbs-*.rpm \
@@ -103,6 +103,7 @@ if [[ ${1:-} == --inside ]]; then
     kernel_release=$(rpm --root "$root" -q --qf '%{VERSION}-%{RELEASE}\n' senemos-uke-linux-kernel-mainline-core)
     [[ -d $root/usr/lib/modules/${kernel_release%.fc44} ]] || die 'Kernel module directory is absent'
     [[ $(rpm --root "$root" -q --qf '%{VERSION} %{RELEASE} %{ARCH}' uke-core-meta) == '1.0.4 1.fc44 aarch64' ]] || die 'Expected Fedora 44 Uke Core RPM'
+    install -Dm644 /builder/uke-zram-generator.conf "$root/etc/systemd/zram-generator.conf"
     dnf_install_with_download_retry -y --use-host-config --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True --installroot="$root" --releasever=44 \
         --setopt=install_weak_deps=False --setopt=localpkg_gpgcheck=False install \
         /hardware-rpms/uke-touchscreen-0.1.0-18.fc44.aarch64.rpm \
@@ -347,6 +348,7 @@ base_mount=()
     -v "$lock_file:/builder/package-lock.json:ro" \
     -v "$here/configs/images/uke-persist.fstab:/builder/uke-persist.fstab:ro" \
     -v "$here/configs/images/uke-ssc-fedora44.target:/builder/uke-ssc-fedora44.target:ro" \
+    -v "$here/configs/images/uke-zram-generator.conf:/builder/uke-zram-generator.conf:ro" \
     "$arm_image" bash /builder.sh --inside
 hwdb_image=$(bash "$here/src/image/ensure-hwdb-image.sh" "$container")
 "$container" run --rm --network=none --security-opt label=disable \

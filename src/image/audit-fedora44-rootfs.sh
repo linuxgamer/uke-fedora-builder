@@ -35,6 +35,10 @@ hwdb_bytes=$(stat -c %s "$root/etc/udev/hwdb.bin")
 mapfile -t kernel_configs < <(find "$root/usr/lib/modules" -mindepth 2 -maxdepth 2 -name config -type f -print)
 ((${#kernel_configs[@]} == 1)) || fail 'expected one kernel config'
 grep -Fxq CONFIG_I2C_CHARDEV=y "${kernel_configs[0]}" || fail 'i2c-dev is unavailable'
+grep -Fxq CONFIG_ZRAM=m "${kernel_configs[0]}" || fail 'kernel ZRAM module is unavailable'
+grep -Eq '^zram-generator[[:space:]]' "$output/packages.tsv" || fail 'ZRAM generator is missing'
+[[ -s $root/etc/systemd/zram-generator.conf ]] || fail 'ZRAM configuration is missing'
+grep -Fxq 'zram-size = min(ram / 2, 4096)' "$root/etc/systemd/zram-generator.conf" || fail 'unexpected ZRAM size'
 
 # A nonstandard Qualcomm DSP binary makes brp-strip print an error. Verify that
 # the installed payload still matches the reviewed bundled file byte for byte.

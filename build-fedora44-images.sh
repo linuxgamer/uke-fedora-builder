@@ -435,6 +435,7 @@ input_hash=$(
         "$here/src/boot/boot-image.cpp" "$here/configs/firstboot/uke-create-user" \
         "$here/configs/firstboot/uke-create-user.service" \
         "$here/configs/images/uke-persist.fstab" "$here/configs/images/uke-ssc-fedora44.target" \
+        "$here/configs/images/uke-zram-generator.conf" \
         "$blobs/touch/tm/normal.bin" "$blobs/touch/tm/config.ini" \
         "$blobs/touch/csot/normal.bin" "$blobs/touch/csot/config.ini" \
         "$blobs/touch/reference.bin" "$core_rpm" "$kernel_rpms"/*.rpm "$hardware_rpms"/*.rpm | \
