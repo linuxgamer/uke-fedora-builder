@@ -21,7 +21,7 @@ for part in '' -core -modules -dtbs -boot; do
     rpm_paths+=("$path")
 done
 
-source=BUILD/senemos-uke-linux-kernel-mainline-7.2.11-build/linux-7.2.11
+source=BUILD/senemos-uke-linux-kernel-mainline-${uke_kernel_version}-build/linux-${uke_kernel_version}
 out=native-kernel-out
 build_paths=("$source/boot-recipe/src/boot/dracut/root-guard.sh" \
     "$out/.config" "$out/boot-initramfs.cpio.gz" "$out/Module.symvers" \

@@ -11,7 +11,7 @@ Usage: ./build-fedora44-rootfs.sh --profile tty|kde|gnome|phosh|plasma-mobile \
        [--base-rootfs VERIFIED_TTY_DIR]
 
 Compose a Fedora 44 AArch64 rootfs from Fedora packages and locally built
-Linux 7.2.11 and selected hardware RPMs. Requires Docker or Podman and
+Linux 7.3.1 and selected hardware RPMs. Requires Docker or Podman and
 AArch64 emulation on an x86_64 host. Output includes a sparse EXT4 image,
 the package inventory and hashes. The image includes OEM touch firmware and a
 tablet touch reference from the bundled, hash-pinned Uke OEM set. TTY creates

@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <iostream>
 #include <stdexcept>
+#include <sstream>
 #include <string>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -97,15 +98,32 @@ int main(int argc, char** argv) {
                       << ",\"os_version_encoded\":" << h.os << ",\"payload_end\":" << h.end
                       << ",\"image_bytes\":" << b.size() << ",\"avb_footer_present\":"
                       << (h.footer ? "true" : "false") << "}\n";
+        } else if (argc == 4 && std::string(argv[1]) == "check-root") {
+            const std::string expected = argv[3];
+            if (expected != "linux" && expected != "userdata")
+                throw std::runtime_error("Expected root must be linux or userdata");
+            const auto b = read(argv[2]); inspect(b);
+            std::istringstream args(reinterpret_cast<const char*>(b.data() + 44));
+            std::string token, selected = "linux"; unsigned selectors = 0;
+            while (args >> token) {
+                if (token.starts_with("senemos.root=")) {
+                    ++selectors; selected = token.substr(13);
+                }
+            }
+            if (selectors > 1 || selected != expected)
+                throw std::runtime_error("Boot root selector disagrees with selected root");
         } else if (argc == 4 && std::string(argv[1]) == "extract") {
             const auto b = read(argv[2]); const auto h = inspect(b);
             write_new(argv[3], std::vector<uint8_t>(b.begin() + page, b.begin() + page + h.kernel));
-        } else if ((argc == 6 && std::string(argv[1]) == "pack") ||
+        } else if (((argc == 6 || argc == 7) && std::string(argv[1]) == "pack") ||
                    ((argc == 4 || argc == 5) && std::string(argv[1]) == "create")) {
             const bool create = std::string(argv[1]) == "create";
-            const std::string profile = create && argc == 5 ? argv[4] : "";
+            const std::string profile = create && argc == 5 ? argv[4] :
+                (!create && argc == 7 ? argv[6] : "");
             if (!profile.empty() && profile != "linux" && profile != "userdata" && profile != "userdata-vrr")
                 throw std::runtime_error("Root profile must be linux, userdata or private userdata-vrr");
+            if (!create && profile == "userdata-vrr")
+                throw std::runtime_error("Private userdata-vrr profile cannot be packed for release");
             if (create && argc == 5 && profile.empty())
                 throw std::runtime_error("Empty root profile refused");
             // Uke stock-ABL metadata and capacity from the accepted boot_b header.
@@ -131,7 +149,7 @@ int main(int argc, char** argv) {
             write_new(argv[create ? 3 : 4], b);
             inspect(b);
         } else {
-            throw std::runtime_error("Usage: boot-image inspect IMAGE | extract IMAGE NEW_KERNEL | pack STOCK IMAGE NEW_BOOT CAPACITY_BYTES | create IMAGE NEW_BOOT [linux|userdata|userdata-vrr]");
+            throw std::runtime_error("Usage: boot-image inspect IMAGE | check-root IMAGE linux|userdata | extract IMAGE NEW_KERNEL | pack STOCK IMAGE NEW_BOOT CAPACITY_BYTES [linux|userdata] | create IMAGE NEW_BOOT [linux|userdata|userdata-vrr]");
         }
     } catch (const std::exception& e) { std::cerr << "boot-image: " << e.what() << '\n'; return 1; }
 }

@@ -23,7 +23,7 @@ Usage: ./uke-fedora-builder/build-fedora44-images.sh [--stock-boot FILE] [--outp
        ./uke-fedora-builder/build-fedora44-images.sh --status|--stop --output DIR
        ./uke-fedora-builder/build-fedora44-images.sh --audit-only --profiles LIST --output DIR
 
-Build Linux 7.2.11 and Fedora 44 RPMs, then make separate TTY, KDE, GNOME,
+Build Linux 7.3.1 and Fedora 44 RPMs, then make separate TTY, KDE, GNOME,
 Phosh and Plasma Mobile boot_a/userdata pairs. LIST is all (the default) or
 a comma-separated subset of tty,kde,gnome,phosh,plasma-mobile. Desktop profiles
 also build the TTY rootfs and boot pair as shared prerequisites. Bundled OEM
@@ -146,6 +146,9 @@ if [[ $control == --audit-only ]]; then
     exit
 fi
 source "$here/src/image/fedora44-package-lock.sh"
+kernel_epoch=$(jq -er .source_date_epoch \
+    "$workspace/senemos-uke-kernel/manifests/linux-${uke_kernel_version}.json")
+[[ $kernel_epoch =~ ^[0-9]+$ ]] || die 'Invalid kernel source date epoch'
 [[ -x $here/build-fedora44-rootfs.sh && -x $here/build-fedora44-boot-a.sh ]] || die 'Image builders are missing'
 [[ -x $workspace/uke-linux-hardware-support/xiaomi-uke-firmware/src/verify-fedora44-oem-304.sh ]] || die 'OEM input verifier is missing'
 "$workspace/uke-linux-hardware-support/xiaomi-uke-firmware/src/verify-fedora44-oem-304.sh" || die 'Bundled OS3.0.304.0 OEM inputs are incomplete'
@@ -201,11 +204,11 @@ export UKE_CCACHE=1 CCACHE_DIR=/build-cache/ccache CCACHE_MAXSIZE=10G
 git config --global --add safe.directory /work/senemos-uke-kernel
 bash uke-fedora-builder/src/image/build-control.sh stage 'Prepare source RPMs'
 make -C senemos-uke-kernel srpm
-make -C uke-linux-hardware-support/uke-core-meta srpm
+make -C uke-linux-hardware-support/uke-core-meta FEDORA44_LEGACY=1 srpm
 make -C uke-linux-hardware-support/uke-sensors touchscreen-srpm
 make -C uke-linux-hardware-support/uke-console-input srpm
 make -C uke-linux-hardware-support/uke-platform-runtime srpm
-make -C uke-linux-hardware-support/uke-boot srpm
+make -C uke-linux-hardware-support/uke-boot FEDORA44_LEGACY=1 srpm
 make -C uke-linux-hardware-support/xiaomi-uke-firmware fedora44-image-data-srpm
 for package in libssc iio-sensor-proxy uke-ssc-fileservice; do
     make -C uke-linux-hardware-support/uke-sensors PACKAGE="$package" srpm
@@ -244,7 +247,7 @@ for top in "${tops[@]}"; do
     fi
     if [[ $top == senemos-uke-kernel/build/srpm/rpmbuild && $UKE_REBUILD_KERNEL == 0 ]] && \
        bash uke-fedora-builder/src/image/kernel-rpm-cache.sh check "$top"; then
-        printf 'Reusing verified Linux 7.2.11 RPMs and boot build\n'
+        printf 'Reusing verified Linux %s RPMs and boot build\n' "$uke_kernel_version"
         bash uke-fedora-builder/src/image/build-control.sh done
         continue
     fi
@@ -270,7 +273,7 @@ for top in "${tops[@]}"; do
     "${dnf[@]}" builddep "${specs[0]}"
     if [[ $top == senemos-uke-kernel/build/srpm/rpmbuild && $UKE_CROSS_KERNEL == 1 ]]; then
         rpmbuild -bp --nodeps --target aarch64 --define "_topdir /work/$top" "${specs[0]}"
-        source=$top/BUILD/senemos-uke-linux-kernel-mainline-7.2.11-build/linux-7.2.11
+        source=$top/BUILD/senemos-uke-linux-kernel-mainline-${uke_kernel_version}-build/linux-${uke_kernel_version}
         base=$top/boot-userspace
         bash "$source/boot-recipe/src/boot/make-initramfs-base.sh" "$base" "$uke_kernel_krel"
         clang++ -std=c++17 -O2 -Wall -Wextra -Werror -ffile-prefix-map="$PWD"=. \
@@ -343,16 +346,17 @@ if [[ -f $kernel_top/.fedora44-cross-pending ]]; then
     amd_image=$("$here/src/image/ensure-build-image.sh" "$container" linux/amd64)
     "$container" run --rm -i --network=host --platform linux/amd64 --security-opt label=disable \
         --label "org.uke-fedora.build-run=$UKE_BUILD_RUN_ID" \
-        -e UKE_KERNEL_KREL="$uke_kernel_krel" \
+        -e UKE_KERNEL_KREL="$uke_kernel_krel" -e UKE_KERNEL_VERSION="$uke_kernel_version" \
+        -e UKE_SOURCE_DATE_EPOCH="$kernel_epoch" \
         -v "$cache_dir:/build-cache" -v "$workspace:/work" -w /work \
         "$amd_image" bash -s <<'CROSS_KERNEL'
 set -Eeuo pipefail
 top=/work/senemos-uke-kernel/build/srpm/rpmbuild
-source=$top/BUILD/senemos-uke-linux-kernel-mainline-7.2.11-build/linux-7.2.11
+source=$top/BUILD/senemos-uke-linux-kernel-mainline-${UKE_KERNEL_VERSION}-build/linux-${UKE_KERNEL_VERSION}
 [[ $(cat "$top/.fedora44-cross-pending") == "$UKE_KERNEL_KREL" ]] || exit 2
 export UKE_CROSS_KERNEL=1 UKE_CCACHE=1 CCACHE_DIR=/build-cache/ccache-cross CCACHE_MAXSIZE=10G
 export KBUILD_BUILD_USER=senemos KBUILD_BUILD_HOST=copr-builder KBUILD_BUILD_VERSION=1
-export SOURCE_DATE_EPOCH=1791725270
+export SOURCE_DATE_EPOCH=$UKE_SOURCE_DATE_EPOCH
 KBUILD_BUILD_TIMESTAMP=$(date -u -d "@$SOURCE_DATE_EPOCH" '+%Y-%m-%d %H:%M:%S UTC')
 export KBUILD_BUILD_TIMESTAMP
 bash "$source/boot-recipe/src/boot/build-payload.sh" "$source" \
@@ -397,7 +401,7 @@ amd_image_id=none
 native_image=$(bash "$here/src/image/ensure-hwdb-image.sh" "$container")
 native_image_id=$("$container" image inspect "$native_image" --format '{{.Id}}')
 guard=$(find "$kernel_top/BUILD" -type f \
-  -path '*/linux-7.2.11/boot-recipe/src/boot/dracut/root-guard.sh' -print -quit)
+  -path "*/linux-${uke_kernel_version}/boot-recipe/src/boot/dracut/root-guard.sh" -print -quit)
 [[ -n $guard ]] || die 'Prepared kernel source was not found'
 kernel_source=${guard%/boot-recipe/src/boot/dracut/root-guard.sh}
 core_rpm=$workspace/uke-linux-hardware-support/uke-core-meta/build/srpm/rpmbuild/RPMS/aarch64/uke-core-meta-1.0.4-1.fc44.aarch64.rpm

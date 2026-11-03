@@ -15,12 +15,25 @@ printf '\101\122\115\144' | dd of=Image bs=1 seek=56 conv=notrunc status=none
 "$codec" inspect boot | jq -e '.kernel_bytes==64 and .ramdisk_bytes==0 and .signature_bytes==0 and .avb_footer_present==false' >/dev/null
 "$codec" extract boot unpacked
 cmp Image unpacked
+"$codec" check-root boot linux
+"$codec" pack stock Image userdata-boot 65536 userdata
+"$codec" check-root userdata-boot userdata
+[[ $(dd if=userdata-boot bs=1 skip=44 count=1536 status=none | tr -d '\000') == 'senemos.root=userdata' ]]
 "$codec" create Image userdata-vrr.img userdata-vrr
 [[ $(dd if=userdata-vrr.img bs=1 skip=44 count=1536 status=none | tr -d '\000') == 'senemos.root=userdata msm.o82_vrr_test_min_hz=30' ]]
 "$codec" extract userdata-vrr.img vrr.Image
 cmp Image vrr.Image
 reject() { if "$codec" "$@" >/dev/null 2>&1; then echo 'Malformed image accepted' >&2; exit 1; fi; }
 reject pack stock Image boot 65536
+reject check-root boot userdata
+reject pack stock Image bad-profile 65536 foreign
+reject pack stock Image bad-vrr 65536 userdata-vrr
+cp userdata-boot duplicate-selector
+printf 'senemos.root=linux senemos.root=userdata\000' | dd of=duplicate-selector bs=1 seek=44 conv=notrunc status=none
+reject check-root duplicate-selector userdata
+cp userdata-boot foreign-selector
+printf 'senemos.root=foreign\000' | dd of=foreign-selector bs=1 seek=44 conv=notrunc status=none
+reject check-root foreign-selector userdata
 reject pack stock Image undersized 4096
 reject pack stock Image mismatch 131072
 reject pack stock Image invalid -1
