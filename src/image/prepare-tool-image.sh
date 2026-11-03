@@ -20,6 +20,6 @@ esac
 dnf5 -y --setopt="system_cachedir=/build-cache/$cache" --setopt=keepcache=True \
     --setopt=install_weak_deps=False install \
     bc bison ccache clang compiler-rt coreutils cpio curl diffutils dtc \
-    elfutils-libelf-devel findutils flex gcc gcc-c++ gzip kmod lld llvm make \
+    elfutils-libelf-devel findutils flex gcc gcc-c++ gzip kmod libfdt-devel lld llvm make \
     ncurses-devel openssl-devel perl python3 rpm-build rsync tar xz zstd \
     "${extra[@]}"
