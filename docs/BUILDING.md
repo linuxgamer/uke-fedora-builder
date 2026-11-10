@@ -8,7 +8,7 @@ verified by the script.
 For KDE and GNOME:
 
 ```sh
-./uke-fedora-builder/build-fedora44-images.sh --cross-kernel \
+./uke-fedora-builder/build-images.sh --cross-kernel \
   --profiles kde,gnome --output build/fedora44-images-desktop
 ```
 
@@ -24,8 +24,8 @@ the available tablet; CSOT still needs physical validation.
 Check progress or stop a running build from another terminal:
 
 ```sh
-./uke-fedora-builder/build-fedora44-images.sh --status --output build/fedora44-images-desktop
-./uke-fedora-builder/build-fedora44-images.sh --stop --output build/fedora44-images-desktop
+./uke-fedora-builder/build-images.sh --status --output build/fedora44-images-desktop
+./uke-fedora-builder/build-images.sh --stop --output build/fedora44-images-desktop
 ```
 
 To continue an interrupted build, repeat the build command with `--resume`.

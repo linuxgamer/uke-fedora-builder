@@ -3,7 +3,7 @@
 For most x86_64 PCs, start the five-image build with `--cross-kernel`:
 
 ```sh
-./uke-fedora-builder/build-fedora44-images.sh \
+./uke-fedora-builder/build-images.sh \
     --cross-kernel --output build/fedora44-images
 ```
 
@@ -28,7 +28,7 @@ successful kernel RPM build. When a verified kernel is already cached,
 `--cross-kernel` alone will not recompile it. To force a new cross build, use:
 
 ```sh
-./uke-fedora-builder/build-fedora44-images.sh \
+./uke-fedora-builder/build-images.sh \
     --cross-kernel --rebuild-kernel --output build/fedora44-images-new
 ```
 
@@ -86,7 +86,7 @@ inside the AArch64 container.
 For an interrupted run, keep the same output directory and add `--resume`:
 
 ```sh
-./uke-fedora-builder/build-fedora44-images.sh \
+./uke-fedora-builder/build-images.sh \
     --cross-kernel --resume --output build/fedora44-images
 ```
 
@@ -98,7 +98,7 @@ To rerun the current audit on a completed output without rebuilding anything,
 use the original profile list:
 
 ```sh
-./uke-fedora-builder/build-fedora44-images.sh \
+./uke-fedora-builder/build-images.sh \
     --audit-only --profiles kde --output build/fedora44-kde-tm-fix
 ```
 

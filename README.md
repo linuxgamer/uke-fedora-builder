@@ -22,7 +22,7 @@ The image recipes use original Fedora packages, including the standard KDE Plasm
 For the Xiaomi Pad 7 Fedora 44 release image set, run from the workspace root:
 
 ```sh
-./uke-fedora-builder/build-fedora44-images.sh --cross-kernel --output build/fedora44-images
+./uke-fedora-builder/build-images.sh --cross-kernel --output build/fedora44-images
 ```
 
 On an x86_64 PC, `--cross-kernel` makes Clang compile the ARM64 kernel directly
@@ -37,7 +37,7 @@ The command creates separate TTY, KDE, GNOME, Phosh, and Plasma Mobile image
 pairs by default. To build only selected profiles, pass a comma-separated list:
 
 ```sh
-./uke-fedora-builder/build-fedora44-images.sh --cross-kernel \
+./uke-fedora-builder/build-images.sh --cross-kernel \
     --profiles kde,gnome --output build/fedora44-images-desktop
 ```
 
@@ -54,14 +54,14 @@ With `--resume`, you can add more profiles to the same output directory later.
 In another terminal, inspect concise progress or stop the build:
 
 ```sh
-./uke-fedora-builder/build-fedora44-images.sh --status --output build/fedora44-images
-./uke-fedora-builder/build-fedora44-images.sh --stop --output build/fedora44-images
+./uke-fedora-builder/build-images.sh --status --output build/fedora44-images
+./uke-fedora-builder/build-images.sh --stop --output build/fedora44-images
 ```
 
 After interruption, restart with the same options and `--resume`:
 
 ```sh
-./uke-fedora-builder/build-fedora44-images.sh --cross-kernel --resume --output build/fedora44-images
+./uke-fedora-builder/build-images.sh --cross-kernel --resume --output build/fedora44-images
 ```
 
 Completed RPMs and profile artifacts are reused only after their inputs and checksums

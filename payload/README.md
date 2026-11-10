@@ -7,7 +7,7 @@ compressed SHA-256 is
 the uncompressed `boot.img` SHA-256 is
 `1eaf4858a7c70bee9b663b485f3192b164738bbdae3edbb986a5419621c8ef30`.
 
-`build-fedora44-images.sh` checks both hashes, unpacks the image into a
+`build-images.sh` checks both hashes, unpacks the image into a
 temporary directory and removes that copy on exit. The boot builder uses the
 reviewed template's metadata and replaces the kernel payload. It does not
 flash a device.

@@ -6,7 +6,7 @@ here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 die() { printf 'fedora44-boot-a: %s\n' "$*" >&2; exit 1; }
 usage() {
     cat <<'HELP'
-Usage: ./build-fedora44-boot-a.sh --rootfs DIR --kernel-source DIR \
+Usage: ./build-boot-a.sh --rootfs DIR --kernel-source DIR \
        --kernel-out DIR --stock-boot FILE --output NEW_DIR
 
 Pack the kernel's verified userdata Image into an OEM-derived Android v4 boot_a

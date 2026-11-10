@@ -1,6 +1,6 @@
 # How the Fedora 44 images are assembled
 
-`build-fedora44-images.sh` checks the bundled Xiaomi OS3.0.304.0 inputs,
+`build-images.sh` checks the bundled Xiaomi OS3.0.304.0 inputs,
 builds the Linux 7.2.11 and hardware RPMs, then creates a shared TTY base.
 Each selected desktop gets its own userdata image and matched `boot_a` image.
 The output profiles are separate releases; they are not combined in one rootfs.

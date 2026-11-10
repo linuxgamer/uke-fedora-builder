@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Fedora 44 rootfs composition. This produces a tarball, never writes a device.
+# Fedora rootfs composition. This produces a tarball, never writes a device.
 set -Eeuo pipefail
 
 here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 usage() {
     cat <<'HELP'
-Usage: ./build-fedora44-rootfs.sh --profile tty|kde|gnome|phosh|plasma-mobile \
+Usage: ./build-rootfs.sh --profile tty|kde|gnome|phosh|plasma-mobile \
        --kernel-rpms DIR --core-rpm FILE --hardware-rpms DIR \
        --output DIR [--touch-panel auto] [--root-mib 4096]
        [--base-rootfs VERIFIED_TTY_DIR]
@@ -340,7 +340,7 @@ base_mount=()
     -v "$hardware_rpms:/hardware-rpms:ro" \
     -v "$blobs:/local-blobs:ro" \
     -v "$core_rpm:/core-rpm/uke-core-meta.rpm:ro" \
-    -v "$here/build-fedora44-rootfs.sh:/builder.sh:ro" \
+    -v "$here/build-rootfs.sh:/builder.sh:ro" \
     -v "$here/src/image/ext4-labels.cpp:/builder/ext4-labels.cpp:ro" \
     -v "$here/src/boot-pair/android-sparse.cpp:/builder/android-sparse.cpp:ro" \
     -v "$here/configs/firstboot/uke-create-user:/builder/uke-create-user:ro" \

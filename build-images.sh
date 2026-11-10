@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
-# Build selected Fedora 44 Xiaomi Pad 7 image pairs from one source checkout.
+# Build the selected Fedora Xiaomi Pad 7 image pairs from one source checkout.
+# FEDORA_RELEASE selects the target Fedora release (default 44).
 set -Eeuo pipefail
 
 here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 workspace=$(cd -- "$here/.." && pwd)
+release=${FEDORA_RELEASE:-44}
+[[ $release =~ ^[0-9]+$ ]] || { printf 'Invalid FEDORA_RELEASE: %s\n' "$release" >&2; exit 1; }
 stock=''
 stock_archive=$here/payload/uke-os3.0.304.0-boot.zst
-output=$workspace/build/fedora44-images
+output=$workspace/build/fedora${release}-images
 rebuild_kernel=0
 cross_kernel=0
 resume=0
@@ -17,11 +20,11 @@ touch_panel=auto
 
 usage() {
     cat <<'HELP'
-Usage: ./uke-fedora-builder/build-fedora44-images.sh [--stock-boot FILE] [--output DIR]
+Usage: ./uke-fedora-builder/build-images.sh [--stock-boot FILE] [--output DIR]
        [--profiles LIST] [--touch-panel auto]
        [--rebuild-kernel] [--cross-kernel] [--resume]
-       ./uke-fedora-builder/build-fedora44-images.sh --status|--stop --output DIR
-       ./uke-fedora-builder/build-fedora44-images.sh --audit-only --profiles LIST --output DIR
+       ./uke-fedora-builder/build-images.sh --status|--stop --output DIR
+       ./uke-fedora-builder/build-images.sh --audit-only --profiles LIST --output DIR
 
 Build Linux 7.3.1 and Fedora 44 RPMs, then make separate TTY, KDE, GNOME,
 Phosh and Plasma Mobile boot_a/userdata pairs. LIST is all (the default) or
@@ -40,7 +43,7 @@ completed artifacts from an interrupted run. --audit-only rechecks completed
 image pairs or finishes a run that stopped at the final audit.
 HELP
 }
-die() { printf 'fedora44-images: %s\n' "$*" >&2; exit 1; }
+die() { printf 'build-images: %s\n' "$*" >&2; exit 1; }
 
 while (($#)); do
     case $1 in
@@ -149,7 +152,7 @@ source "$here/src/image/fedora44-package-lock.sh"
 kernel_epoch=$(jq -er .source_date_epoch \
     "$workspace/senemos-uke-kernel/manifests/linux-${uke_kernel_version}.json")
 [[ $kernel_epoch =~ ^[0-9]+$ ]] || die 'Invalid kernel source date epoch'
-[[ -x $here/build-fedora44-rootfs.sh && -x $here/build-fedora44-boot-a.sh ]] || die 'Image builders are missing'
+[[ -x $here/build-rootfs.sh && -x $here/build-boot-a.sh ]] || die 'Image builders are missing'
 [[ -x $workspace/uke-linux-hardware-support/xiaomi-uke-firmware/src/verify-fedora44-oem-304.sh ]] || die 'OEM input verifier is missing'
 "$workspace/uke-linux-hardware-support/xiaomi-uke-firmware/src/verify-fedora44-oem-304.sh" || die 'Bundled OS3.0.304.0 OEM inputs are incomplete'
 if command -v podman >/dev/null; then container=podman
@@ -424,7 +427,7 @@ input_hash=$(
     printf '%s\n' "$arm_image_id" "$amd_image_id" "$native_image_id" "$touch_panel"
     sha256sum "$stock" "$kernel_out/.config" "$kernel_out/boot-initramfs.cpio.gz" \
         "$kernel_out/boot-manifest" "$kernel_out/arch/arm64/boot/Image" \
-        "$here/build-fedora44-rootfs.sh" "$here/build-fedora44-boot-a.sh" \
+        "$here/build-rootfs.sh" "$here/build-boot-a.sh" \
         "$here/src/image/ensure-hwdb-image.sh" \
         "$here/src/image/finalize-fedora44-rootfs.sh" \
         "$here/src/image/ensure-build-image.sh" \
@@ -489,7 +492,7 @@ for profile in "${build_profiles[@]}"; do
         clear_profile_dir "$stage"
         base_args=()
         [[ $profile == tty ]] || base_args=(--base-rootfs "$output/tty-rootfs")
-        "$here/build-fedora44-rootfs.sh" \
+        "$here/build-rootfs.sh" \
             --profile "$profile" --kernel-rpms "$kernel_rpms" \
             --core-rpm "$core_rpm" --hardware-rpms "$hardware_rpms" \
             --root-mib "$root_mib" --touch-panel "$touch_panel" "${base_args[@]}" --output "$stage"
@@ -506,7 +509,7 @@ for profile in "${build_profiles[@]}"; do
         stage=$output/.$profile-pair.$UKE_BUILD_RUN_ID
         clear_profile_dir "$stage"
         if [[ $profile == tty ]]; then
-            "$here/build-fedora44-boot-a.sh" \
+            "$here/build-boot-a.sh" \
                 --rootfs "$root_dir" --kernel-source "$kernel_source" \
                 --kernel-out "$kernel_out" --stock-boot "$stock" \
                 --output "$stage"
