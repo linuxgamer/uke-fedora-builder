@@ -196,6 +196,7 @@ arm_image=$("$here/src/image/ensure-build-image.sh" "$container" linux/arm64)
     --label "org.uke-fedora.build-run=$UKE_BUILD_RUN_ID" \
     "${sanitizer_env[@]}" \
     -e UKE_REBUILD_KERNEL="$rebuild_kernel" -e UKE_CROSS_KERNEL="$cross_kernel" \
+    -e UKE_VIDEO_OVERLAY="${UKE_VIDEO_OVERLAY:-0}" \
     -e UKE_BUILD_RUN_ID -e UKE_BUILD_OUTPUT=/build-output \
     -v "$cache_dir:/build-cache" -v "$output:/build-output" \
     -v "$workspace:/work" -w /work "$arm_image" \
