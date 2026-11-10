@@ -191,7 +191,7 @@ if [[ ${1:-} == --inside ]]; then
             esac
             dnf_install_with_download_retry -y --use-host-config --disable-repo=fedora-cisco-openh264 \
                 --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True \
-                --setopt=max_parallel_downloads=2 \
+                --setopt=max_parallel_downloads=8 \
                 --installroot="$root" --releasever=44 --setopt=install_weak_deps=False \
                 install noopenh264 "${common[@]}" "${desktop[@]}"
             if [[ $display == sddm ]]; then

@@ -264,7 +264,6 @@ for top in "${tops[@]}"; do
         bash uke-fedora-builder/src/image/rpm-build-cache.sh invalidate "$top"
     fi
     if [[ $top == senemos-uke-kernel/build/srpm/rpmbuild ]]; then
-        rm -f -- "$top/.fedora${release}-kernel-cache/SOURCE-SHA256"
         if [[ -e $top/native-kernel-out || -e $top/boot-userspace ]]; then
             previous=$(mktemp -d "$top/previous-native-kernel-out.XXXXXXXX")
             for path in native-kernel-out boot-userspace; do
@@ -347,10 +346,12 @@ if [[ -f $kernel_top/.fedora${release}-cross-pending ]]; then
     build_stage='RPM: kernel (cross-compile and package)'
     build_write_status
     amd_image=$("$here/src/image/ensure-build-image.sh" "$container" linux/amd64)
+    jobs=$(nproc)
+    if ((jobs > 16)); then jobs=16; fi
     "$container" run --rm -i --network=host --platform linux/amd64 --security-opt label=disable \
         --label "org.uke-fedora.build-run=$UKE_BUILD_RUN_ID" \
         -e UKE_KERNEL_KREL="$uke_kernel_krel" -e UKE_KERNEL_VERSION="$uke_kernel_version" \
-        -e UKE_SOURCE_DATE_EPOCH="$kernel_epoch" \
+        -e UKE_SOURCE_DATE_EPOCH="$kernel_epoch" -e UKE_JOBS="$jobs" \
         -v "$cache_dir:/build-cache" -v "$workspace:/work" -w /work \
         "$amd_image" bash -s <<'CROSS_KERNEL'
 set -Eeuo pipefail
@@ -363,7 +364,7 @@ export SOURCE_DATE_EPOCH=$UKE_SOURCE_DATE_EPOCH
 KBUILD_BUILD_TIMESTAMP=$(date -u -d "@$SOURCE_DATE_EPOCH" '+%Y-%m-%d %H:%M:%S UTC')
 export KBUILD_BUILD_TIMESTAMP
 bash "$source/boot-recipe/src/boot/build-payload.sh" "$source" \
-    "$top/native-kernel-out" "$top/boot-userspace/base" "$UKE_KERNEL_KREL" 8
+    "$top/native-kernel-out" "$top/boot-userspace/base" "$UKE_KERNEL_KREL" "$UKE_JOBS"
 CROSS_KERNEL
 
     "$container" run --rm -i --network=host --platform linux/arm64 --security-opt label=disable \

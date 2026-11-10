@@ -32,7 +32,7 @@ dependency_hash=$(for dependency in "${dependencies[@]}"; do
     sha256sum "$dependency"
 done | sha256sum | cut -d' ' -f1)
 recipe_hash=$(sha256sum "$script" | cut -d' ' -f1)
-key=$(printf '%s\n' "$source_hash" "$dependency_hash" "$recipe_hash" 'fedora${release}-aarch64-rpmbuild-v1' | sha256sum | cut -d' ' -f1)
+key=$(printf '%s\n' "$source_hash" "$dependency_hash" "$recipe_hash" "fedora${release}-aarch64-rpmbuild-v1" | sha256sum | cut -d' ' -f1)
 
 if [[ $action == check ]]; then
     [[ -s $cache/INPUT-SHA256 && -s $cache/RPMS.sha256 ]] || exit 1
