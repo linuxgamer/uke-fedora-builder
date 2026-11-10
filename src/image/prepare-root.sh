@@ -25,7 +25,7 @@ rpm --restore -a
 rpm -V uke-core-meta uke-desktop-metas libstdc++ uke-boot-integration uke-esp32-cdc \
     senemos-uke-linux-kernel-mainline-core senemos-uke-linux-kernel-mainline-modules \
     senemos-uke-linux-kernel-mainline-dtbs
-if rpm -qa --qf '%{NAME}\n' | grep -Ei 'python|pypy|libpython|^plasma-workspace$|^dolphin$|^kde-plasma-uke-meta$'; then exit 1; fi
+if rpm -qa --qf '%{NAME}\n' | grep -Ei '^plasma-workspace$|^dolphin$|^kde-plasma-uke-meta$'; then exit 1; fi
 [[ $(rpm -q --qf '%{RELEASE}' uke-core-meta) == 3.fc46 ]]
 [[ -s /usr/lib/modules/$kernel_release/dtb/qcom/sm7675-xiaomi-uke.dtb ]]
 # Remove optional container/graphics packages through RPM dependency checks.

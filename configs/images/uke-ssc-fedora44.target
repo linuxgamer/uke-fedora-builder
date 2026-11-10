@@ -1,0 +1,8 @@
+[Unit]
+Description=Xiaomi Pad 7 SSC sensors
+ConditionFirmware=device-tree-compatible(xiaomi,uke)
+Requires=uke-ssc-sensors.service iio-sensor-proxy.service
+After=uke-ssc-sensors.service iio-sensor-proxy.service
+
+[Install]
+WantedBy=dev-fastrpc\x2dadsp.device

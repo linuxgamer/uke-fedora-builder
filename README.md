@@ -1,118 +1,101 @@
-# Uke Linux Builder
+# Uke Fedora Builder
 
-Fedora Rawhide AArch64 image and build tools for the **Xiaomi Pad 7** and **POCO Pad X1** (`uke`, Qualcomm SM7675).
+Tools and recipes for **Fedora 44 AArch64** release images for Xiaomi Pad 7
+(`uke`, Qualcomm SM7675). Older Rawhide development targets for POCO Pad X1
+and Xiaomi Pad 7 remain available.
 
-This repository contains the image recipes, boot integration and validation tools used by [Uke Linux](https://github.com/MCC45TR/uke-linux). Kernel sources and RPM packaging are maintained separately in [Senemos Uke Mainline Kernel](https://github.com/MCC45TR/senemos-uke-kernel-mainline).
+The builder creates filesystem and boot-image artifacts. A completed build
+alone does not establish that an image boots on the tablet.
 
-[Build guide](docs/PUBLIC-BUILD.md) · [Hardware status](https://github.com/MCC45TR/uke-linux#hardware-support) · [Development COPR](https://copr.fedorainfracloud.org/coprs/mcc45tr/uke-linux-test/) · [Image releases](https://github.com/MCC45TR/uke-linux-images/releases)
+## Build targets
 
-> [!WARNING]
-> Uke Linux is still experimental. Successful build and image checks do not guarantee a working installation on the tablet. Keep a verified recovery path and backups before flashing.
-
-## Project status
-
-As of **26 October 2026**, the Fedora KDE EXT4 singleboot candidate with signed **Linux 7.3.0-16** and **Uke Control 1.15.0-2** passes host-side filesystem, SELinux, sparse-image and compression checks. The exported image has **not yet been validated on a tablet**. Earlier working desktop and hardware results come from a separate development installation.
-
-See the [frozen build recipe](https://github.com/MCC45TR/uke-fedora-builder/blob/b0fd2380b07dbaaf37403c057b74796faf8f5ed3/docs/PUBLIC-BUILD.md) and [release records](https://github.com/MCC45TR/uke-linux-images/tree/main/releases/prebuild-fedora-kde-singleboot-ext4-20261026-k7.3.0-16-testing) for that exact candidate. The source workflow in this checkout is maintained separately; not every kernel version or build combination has the same validation status.
-
-## Build
-
-Start from the main Uke Linux workspace on an **x86_64 or AArch64 Linux host**. The public builder supports Ubuntu, Fedora, openSUSE, Arch Linux and Alpine.
-
-```sh
-git clone --recurse-submodules https://github.com/MCC45TR/uke-linux.git
-cd uke-linux
-./ukelinux.sh
-```
-
-The interactive menu lets you choose a distribution, build target, installation layout, filesystem, desktop, package channel and output directory. The repository keeps its existing `uke-fedora-builder` name and uses only `main` for active development.
-
-As of **1 November 2026**, `--distro fedora` selects the existing Fedora backend and remains the default. `--distro ubuntu` and `--distro arch` are reserved choices that stop explicitly before host preparation, including with `--dry-run`; they do not produce Fedora images under another distribution's name. See [distribution backend status](docs/DISTRIBUTIONS.md) for remaining work.
-
-| Option | Available selections |
-| --- | --- |
-| Build target | Fedora image or kernel |
-| Boot layout | `singleboot`, `multiboot` |
-| Filesystem | `ext4`, `f2fs`, `btrfs`, `xfs` |
-| Desktop | Original Fedora KDE Plasma, Plasma Mobile or GNOME; signed COPR Cutefish or NextKDE |
-| Login shell | `bash` (default), `zsh`, `fish` |
-| Package channel | `stable`, `testing`, `unstable` |
-
-For non-interactive builds:
-
-```sh
-# Signed Fedora/COPR package image using userdata (default assembly route)
-./ukelinux.sh --build image --mode singleboot --filesystem ext4 \
-  --release rawhide --shell bash --desktop kde --channel unstable --out ./out
-
-# Explicit source build instead of published kernel/platform RPMs
-./ukelinux.sh --build image --build-from-source --channel testing --out ./out
-
-# Kernel packages and boot profiles
-./ukelinux.sh --build kernel --channel testing --out ./out
-
-# Check a configuration without building
-./ukelinux.sh --build image --mode multiboot --filesystem btrfs \
-  --desktop gnome --channel unstable --dry-run
-```
-
-The builder checks source and package inputs, keeps build records and generates checksums. It does **not** repartition the tablet, flash images or switch boot slots. Supported options and prerequisites are documented in the [public build guide](docs/PUBLIC-BUILD.md).
-
-Package assembly never falls back to source compilation. `unstable` selects
-`mcc45tr/uke-linux-unstable` directly with its pinned signing fingerprint.
-`--kernel-rpm` can freeze an exact published kernel release. Kernel source options
-require `--build-from-source` for image builds. Plasma Mobile adds Fedora's
-`plasma-mobile` and `plasma-settings` packages and retains Plasma account setup;
-its graphical session and first-account flow require device testing. NextKDE
-uses Plasma Setup and starts its KOS services after normal account login.
-Cutefish uses GDM with the public test account `senemos` / `fedora`, requires a
-password change, and must pass the real GDM/PAM backend probe during assembly.
-No desktop silently substitutes another; tablet login and runtime remain
-unqualified. The [parallel shared-core workflow](docs/SHARED-CORE-IMAGES.md)
-builds the common core once, composes four independent desktop roots, and waits
-for the jobs to finish before publishing one shared boot and the validated roots.
-Cutefish failure is isolated; KDE, GNOME and NextKDE remain mandatory.
-
-Managed build environments may set `UKE_CA_BUNDLE` to a PEM trust bundle. It is
-mounted temporarily into workers and BuildKit build steps; it is not copied into
-the target filesystem. TLS and RPM signature checks remain enabled.
-
-## Boot layouts and installation
-
-| Layout | Root filesystem | Requirements |
+| Target | What it produces | Intended use |
 | --- | --- | --- |
-| `singleboot` | `userdata` | Replaces Android userdata and its contents |
-| `multiboot` | Existing Linux partition | Requires a previously created `linux` partition; no boot menu is provided |
+| `core` | Fedora console root filesystem and separate UEFI development outputs | Base system and testing |
+| `boot-pair` | Matched `fedora_boot.img` and `system.img` | Stock Android bootloader development route |
+| `boot` | Older initramfs-only debug image | Early boot diagnostics; does not switch to the Fedora root |
 
-Both stock-bootloader layouts use a matching `boot_b` image. Keep the kernel, modules, device trees and initramfs from the same build. UEFI/ESP development is a separate boot path and is not covered by the stock-bootloader results.
+The image recipes use original Fedora packages, including the standard KDE Plasma desktop where selected. Kernel sources and kernel RPM packaging live in the [kernel repository](https://github.com/linuxgamer/senemos-uke-kernel-mainline).
 
-> [!CAUTION]
-> Flashing a singleboot root image to `userdata` **erases Android apps, files and encryption metadata**. The builder does not create the Linux partition required by multiboot.
+## Building
 
-Before a device test, the workspace provides a read-only prerequisite check:
+For the Xiaomi Pad 7 Fedora 44 release image set, run from the workspace root:
+
+```sh
+./uke-fedora-builder/build-fedora44-images.sh --cross-kernel --output build/fedora44-images
+```
+
+On an x86_64 PC, `--cross-kernel` makes Clang compile the ARM64 kernel directly
+on the host CPU instead of compiling it under AArch64 emulation. This usually
+saves time during the first kernel build. It does not change how the other RPMs
+or Fedora rootfs are built. Omit the flag on an ARM64 host. If a verified
+kernel build is already cached, the script reuses it either way; add
+`--rebuild-kernel` only when you intentionally need to compile the kernel again.
+See [Fedora 44 build cache](docs/FEDORA44-BUILD-CACHE.md) for details.
+
+The command creates separate TTY, KDE, GNOME, Phosh, and Plasma Mobile image
+pairs by default. To build only selected profiles, pass a comma-separated list:
+
+```sh
+./uke-fedora-builder/build-fedora44-images.sh --cross-kernel \
+    --profiles kde,gnome --output build/fedora44-images-desktop
+```
+
+The stock panel selector now enables native display by default. O82-36 offers
+the seven fixed OEM modes: 30, 48, 50, 60, 90, 120 and 144 Hz. The owner has
+observed 60 and 120 Hz switching with touch on one O82-36/TM tablet. Test the
+other rates and sleep/wake before treating this mode set as release ready.
+Keep the earlier working 60/120 boot image for recovery. Adaptive VRR remains
+separate from these fixed modes.
+
+Desktop selections also prepare the TTY rootfs and boot pair they share. The
+output contains those TTY prerequisites as well as the requested profile pairs.
+With `--resume`, you can add more profiles to the same output directory later.
+In another terminal, inspect concise progress or stop the build:
+
+```sh
+./uke-fedora-builder/build-fedora44-images.sh --status --output build/fedora44-images
+./uke-fedora-builder/build-fedora44-images.sh --stop --output build/fedora44-images
+```
+
+After interruption, restart with the same options and `--resume`:
+
+```sh
+./uke-fedora-builder/build-fedora44-images.sh --cross-kernel --resume --output build/fedora44-images
+```
+
+Completed RPMs and profile artifacts are reused only after their inputs and checksums
+pass validation. The full output is also saved to `build.log`; stage transitions
+are in `progress.log` and `status.json`. Rootfs phase timings are in each
+profile's `timing.tsv`. The builder caches its tool containers, copies the
+verified TTY rootfs as the base for desktop profiles, and reuses the TTY boot
+image for their separate image pairs. Fedora downloads use a tested mirror by
+default; see the build cache guide for the override.
+
+The older upstream development targets remain available below.
+
+Run these from the [Uke workspace](https://github.com/linuxgamer/uke-fedora), which provides `ukelinux.sh`:
+
+```sh
+./ukelinux.sh --build core --distro=fedora --test
+./ukelinux.sh --build boot-pair --distro=fedora --help
+./ukelinux.sh --build boot --distro=fedora --help
+```
+
+These examples are testing/help entry points, **not installation instructions**. See the workspace and `docs/` for complete image-production and device procedures.
+
+## Before using an image
+
+- Use a matched kernel, modules, device tree, initramfs and root filesystem.
+- Preserve Android partitions, factory data, backups and a working recovery path.
+- Host checks, virtual-machine results and successful builds are **not** proof of tablet compatibility.
+
+For a prepared delivery directory, the workspace provides a read-only prerequisite check:
 
 ```sh
 ./ukelinux.sh --check-device --pair DELIVERY_DIRECTORY
 ```
 
-A successful check is not proof that an image will boot. Follow the [manual installation and rollback instructions](docs/PUBLIC-BUILD.md#output-and-manual-installation) and verify the exact files and target partitions before flashing.
+Related: [Uke Fedora](https://github.com/linuxgamer/uke-fedora) · [Kernel](https://github.com/linuxgamer/senemos-uke-kernel-mainline) · [Hardware integration](https://github.com/linuxgamer/uke-linux-hardware-support)
 
-Generic public images do not bundle private per-device touch references. If the selected profile needs one, supply the target tablet's own qualified reference locally; never reuse another device's calibration data. The original Fedora desktop is retained, with user account creation handled during first setup.
-
-## Documentation
-
-| Topic | Reference |
-| --- | --- |
-| Public image and kernel builds | [PUBLIC-BUILD.md](docs/PUBLIC-BUILD.md) |
-| Image profiles and earlier Core builds | [IMAGES.md](docs/IMAGES.md) |
-| Plasma first-run setup | [PLASMA-FIRST-RUN.md](docs/PLASMA-FIRST-RUN.md) |
-| Userdata/F2FS maintenance | [USERDATA-PREPARATION.md](docs/USERDATA-PREPARATION.md) |
-| Build architecture | [ARCHITECTURE.md](docs/ARCHITECTURE.md) |
-| Validation records | [reports/](reports/) |
-| Security reporting | [SECURITY.md](SECURITY.md) |
-
-Build results, package installation tests and physical tablet tests are recorded separately. For known hardware limitations, see the [Uke Linux hardware table](https://github.com/MCC45TR/uke-linux#hardware-support).
-
-## License
-
-The builder's original code and documentation are licensed under [MIT](LICENSE). Fedora, Linux and other included components retain their respective licenses.
+See [LICENSE](LICENSE) for project tooling licensing.

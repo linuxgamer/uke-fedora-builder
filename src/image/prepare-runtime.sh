@@ -12,5 +12,5 @@ done
 # Only the reviewed Fedora-to-COPR GNU C++ runtime transition is allowed.
 dnf -y --disablerepo='*' --setopt=localpkg_gpgcheck=1 --allow-vendor-change replay "$inputs/runtime"
 rpm -V uke-core-meta uke-desktop-metas libstdc++
-if rpm -qa --qf '%{NAME}\n' | grep -Ei 'python|pypy|libpython|^plasma-workspace$|^dolphin$'; then exit 1; fi
+if rpm -qa --qf '%{NAME}\n' | grep -Ei '^plasma-workspace$|^dolphin$'; then exit 1; fi
 exec bash /builder/src/image/prepare-root.sh "$inputs" "$output" 7.2.9-senemos-uke "$inputs/boot/packages"

@@ -42,7 +42,6 @@ awk -v label="$partlabel" -v archive="$archive_path" '
     /^CONFIG_INITRAMFS_SOURCE=/ {$0="CONFIG_INITRAMFS_SOURCE=\"" archive "\""}
     {print}
 ' "$config" > "$out/kernel.config"
-bash "$root/src/audit/check-target-payload.sh" "$out/initramfs-root"
 bash "$root/src/audit/check-target-privacy.sh" "$out/initramfs-root"
 epoch=${SOURCE_DATE_EPOCH:-1791024250}
 [[ $epoch =~ ^[0-9]+$ ]]

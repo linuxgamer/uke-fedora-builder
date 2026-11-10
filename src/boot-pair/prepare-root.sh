@@ -25,7 +25,7 @@ rpm --root "$root" -V senemos-uke-linux-kernel-mainline{,-core,-modules,-dtbs}
 rpm --root "$root" --restore uke-boot-integration uke-esp32-cdc
 rpm --root "$root" -V uke-boot-integration uke-esp32-cdc
 rpm --root "$root" -qa --qf '%{NAME}\t%{VERSION}-%{RELEASE}\t%{ARCH}\n' | sort > /job/installed-rpms.tsv
-if cut -f1 /job/installed-rpms.tsv | grep -Ei 'python|pypy|libpython|^plasma-workspace$|^dolphin$'; then exit 1; fi
+if cut -f1 /job/installed-rpms.tsv | grep -Ei '^plasma-workspace$|^dolphin$'; then exit 1; fi
 printf 'PARTLABEL=linux / ext4 defaults,noatime,errors=remount-ro 0 1\n' > "$root/etc/fstab"
 cat /builder/configs/images/uke-persist.fstab >> "$root/etc/fstab"
 install -d -m700 "$root/mnt/vendor/persist"

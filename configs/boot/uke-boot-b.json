@@ -4,11 +4,10 @@
   "distribution": "fedora",
   "release": "rawhide",
   "mode": "initramfs-debug-only",
-  "stock_profile": "global-os3.0.303.0.WOZMIXM",
-  "stock_boot_sha256": "efdee1d4e1acd7f6e77615330dbcb045caeeccad8568d89fa6abd627f606e77f",
+  "stock_profile": "global-os3.0.304.0.WOZMIXM",
+  "stock_boot_sha256": "1eaf4858a7c70bee9b663b485f3192b164738bbdae3edbb986a5419621c8ef30",
   "default_boot_template": "android17-evolutionx-12.1",
   "boot_templates": [
-    {"id":"global-os3.0.303.0","source_class":"OEM-global","sha256":"efdee1d4e1acd7f6e77615330dbcb045caeeccad8568d89fa6abd627f606e77f","bytes":100663296},
     {"id":"global-os3.0.304.0","source_class":"OEM-global","sha256":"1eaf4858a7c70bee9b663b485f3192b164738bbdae3edbb986a5419621c8ef30","bytes":100663296},
     {"id":"android17-evolutionx-12.1","source_class":"community-ROM","sha256":"b8da3f7d9c54bba2a0cf6fc72af0df14e7f2993b251ffd2390bfa693d46d2b45","bytes":100663296}
   ],

@@ -1,0 +1,60 @@
+#!/usr/bin/bash
+# Local setup on tty1. No password or password hash is shipped in the image.
+set -Eeuo pipefail
+umask 077
+
+state_dir=/var/lib/uke-firstboot
+marker=$state_dir/user-created
+pending=$state_dir/pending-user
+[[ ! -e $marker ]] || exit 0
+install -d -m 0700 "$state_dir"
+if [[ -s $pending ]]; then
+    IFS= read -r interrupted < "$pending" || :
+    if [[ $interrupted =~ ^[a-z_][a-z0-9_-]{0,30}$ ]]; then
+        userdel --remove "$interrupted" || :
+    fi
+    rm -f "$pending"
+fi
+
+printf '\033[H\033[2J'
+printf '%s\n' 'Fedora 44 on Uke - first boot' \
+  'Create a local administrator account to continue.'
+
+while :; do
+    if ! read -r -p 'User name: ' username; then sleep 1; continue; fi
+    if [[ ! $username =~ ^[a-z_][a-z0-9_-]{0,30}$ ]] || getent passwd "$username" >/dev/null; then
+        printf '%s\n' 'Use an unused lower-case user name (up to 31 characters).'
+        continue
+    fi
+    if ! read -r -s -p 'Password: ' password; then sleep 1; continue; fi
+    printf '\n'
+    if ! read -r -s -p 'Repeat password: ' confirmation; then
+        unset password
+        sleep 1
+        continue
+    fi
+    printf '\n'
+    if ((${#password} < 8)) || [[ $password != "$confirmation" ]]; then
+        printf '%s\n' 'Passwords must match and contain at least eight characters.'
+        unset password confirmation
+        continue
+    fi
+    printf '%s\n' "$username" > "$pending"
+    if ! useradd --create-home --groups wheel --shell /usr/bin/bash "$username"; then
+        rm -f "$pending"
+        printf '%s\n' 'Account creation failed. Try another name.' >&2
+        unset password confirmation
+        continue
+    fi
+    if ! printf '%s:%s\n' "$username" "$password" | chpasswd; then
+        userdel --remove "$username" || :
+        rm -f "$pending"
+        printf '%s\n' 'Password setup failed. Try again.' >&2
+        unset password confirmation
+        continue
+    fi
+    unset password confirmation
+    mv -f "$pending" "$marker"
+    printf '%s\n' 'Account created. Continuing boot.'
+    break
+done
