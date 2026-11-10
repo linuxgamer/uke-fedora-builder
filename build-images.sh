@@ -196,12 +196,14 @@ arm_image=$("$here/src/image/ensure-build-image.sh" "$container" linux/arm64)
     --label "org.uke-fedora.build-run=$UKE_BUILD_RUN_ID" \
     "${sanitizer_env[@]}" \
     -e UKE_REBUILD_KERNEL="$rebuild_kernel" -e UKE_CROSS_KERNEL="$cross_kernel" \
+    -e FEDORA_RELEASE="$release" \
     -e UKE_VIDEO_OVERLAY="${UKE_VIDEO_OVERLAY:-0}" \
     -e UKE_BUILD_RUN_ID -e UKE_BUILD_OUTPUT=/build-output \
     -v "$cache_dir:/build-cache" -v "$output:/build-output" \
     -v "$workspace:/work" -w /work "$arm_image" \
     bash -s <<'BUILD_RPMS'
 set -Eeuo pipefail
+release=${FEDORA_RELEASE:?}
 source uke-fedora-builder/src/image/package-lock.sh
 dnf=(dnf5 -y --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True)
 export UKE_CCACHE=1 CCACHE_DIR=/build-cache/ccache CCACHE_MAXSIZE=10G
@@ -353,9 +355,11 @@ if [[ -f $kernel_top/.fedora${release}-cross-pending ]]; then
         --label "org.uke-fedora.build-run=$UKE_BUILD_RUN_ID" \
         -e UKE_KERNEL_KREL="$uke_kernel_krel" -e UKE_KERNEL_VERSION="$uke_kernel_version" \
         -e UKE_SOURCE_DATE_EPOCH="$kernel_epoch" -e UKE_JOBS="$jobs" \
+        -e FEDORA_RELEASE="$release" \
         -v "$cache_dir:/build-cache" -v "$workspace:/work" -w /work \
         "$amd_image" bash -s <<'CROSS_KERNEL'
 set -Eeuo pipefail
+release=${FEDORA_RELEASE:?}
 top=/work/senemos-uke-kernel/build/srpm/rpmbuild
 source=$top/BUILD/senemos-uke-linux-kernel-mainline-${UKE_KERNEL_VERSION}-build/linux-${UKE_KERNEL_VERSION}
 [[ $(cat "$top/.fedora${release}-cross-pending") == "$UKE_KERNEL_KREL" ]] || exit 2
@@ -370,10 +374,11 @@ CROSS_KERNEL
 
     "$container" run --rm -i --network=host --platform linux/arm64 --security-opt label=disable \
         --label "org.uke-fedora.build-run=$UKE_BUILD_RUN_ID" \
-        "${sanitizer_env[@]}" \
+        "${sanitizer_env[@]}" -e FEDORA_RELEASE="$release" \
         -v "$cache_dir:/build-cache" -v "$workspace:/work" -w /work \
         "$arm_image" bash -s <<'PACKAGE_KERNEL'
 set -Eeuo pipefail
+release=${FEDORA_RELEASE:?}
 dnf=(dnf5 -y --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True)
 top=/work/senemos-uke-kernel/build/srpm/rpmbuild
 spec=$top/SPECS/senemos-uke-linux-kernel-mainline.spec
