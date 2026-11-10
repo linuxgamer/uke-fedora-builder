@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Refuse a cached OEM RPM whose file digests differ from the pinned 3.304 set.
 set -Eeuo pipefail
-[[ $# == 1 && -s $1 ]] || { echo 'Usage: verify-fedora44-oem-rpm.sh RPM' >&2; exit 2; }
+[[ $# == 1 && -s $1 ]] || { echo 'Usage: verify-oem-rpm.sh RPM' >&2; exit 2; }
 rpm_file=$(realpath -- "$1")
 manifest=$(realpath -- "$(dirname -- "${BASH_SOURCE[0]}")/../../../uke-linux-hardware-support/xiaomi-uke-firmware/manifests/local-firmware-candidates.json")
 file_list=$(mktemp)

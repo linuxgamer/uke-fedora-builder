@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Source this file to use one set of Fedora 44 package identities throughout the image build.
 lock_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
-lock_file=$lock_root/configs/fedora44-package-lock.json
+lock_file=$lock_root/configs/package-lock.json
 jq -e '.schema_version == 1 and .kernel_version == "7.3.1" and
        (.kernel_release | type == "string" and test("^[1-9][0-9]*$")) and
        .boot_integration_version == "1.5.2" and

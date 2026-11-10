@@ -4,7 +4,7 @@ For most x86_64 PCs, start the five-image build with `--cross-kernel`:
 
 ```sh
 ./uke-fedora-builder/build-images.sh \
-    --cross-kernel --output build/fedora44-images
+    --cross-kernel --output build/images
 ```
 
 All five profiles are selected by default. Use `--profiles` to select a
@@ -29,7 +29,7 @@ successful kernel RPM build. When a verified kernel is already cached,
 
 ```sh
 ./uke-fedora-builder/build-images.sh \
-    --cross-kernel --rebuild-kernel --output build/fedora44-images-new
+    --cross-kernel --rebuild-kernel --output build/images-new
 ```
 
 The other local RPMs also have an input-and-output checksum cache. A matching
@@ -87,7 +87,7 @@ For an interrupted run, keep the same output directory and add `--resume`:
 
 ```sh
 ./uke-fedora-builder/build-images.sh \
-    --cross-kernel --resume --output build/fedora44-images
+    --cross-kernel --resume --output build/images
 ```
 
 The script checks completed profile artifacts before reusing them. A new run
@@ -99,7 +99,7 @@ use the original profile list:
 
 ```sh
 ./uke-fedora-builder/build-images.sh \
-    --audit-only --profiles kde --output build/fedora44-kde-tm-fix
+    --audit-only --profiles kde --output build/kde-tm-fix
 ```
 
 An interrupted kernel build has no completed RPM cache entry. On the next run,

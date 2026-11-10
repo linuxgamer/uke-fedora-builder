@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Cache native Fedora 44 tools for udev database and ext4 image creation.
 set -Eeuo pipefail
+release=${FEDORA_RELEASE:-44}
 [[ $# == 1 ]] || { echo 'Usage: ensure-hwdb-image.sh docker|podman' >&2; exit 2; }
 container=$1
 case $container in docker|podman) ;; *) exit 2;; esac
@@ -11,9 +12,9 @@ mirror=${UKE_FEDORA_MIRROR:-https://mirror.yandex.ru/fedora/linux}
 mirror=${mirror%/}
 key=$( { sha256sum "$here/ensure-hwdb-image.sh" | cut -d' ' -f1;
          printf '%s\n' "$mirror" "$platform"; } | sha256sum | cut -c1-16)
-image=localhost/uke-fedora44-hwdb:$key
+image=localhost/uke-fedora${release}-hwdb:$key
 if ! "$container" image inspect "$image" >/dev/null 2>&1; then
-    name=uke-fedora44-hwdb-$key-$$
+    name=uke-fedora${release}-hwdb-$key-$$
     cleanup() { "$container" rm -f "$name" >/dev/null 2>&1 || true; }
     trap cleanup EXIT
     run_label=()

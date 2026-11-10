@@ -9,7 +9,7 @@ import sys
 
 def main() -> int:
     if len(sys.argv) != 3:
-        print("Usage: audit-fedora44-build-log.py BUILD.LOG RUN_ID", file=sys.stderr)
+        print("Usage: audit-build-log.py BUILD.LOG RUN_ID", file=sys.stderr)
         return 2
     log = pathlib.Path(sys.argv[1])
     marker = f"===== UKE BUILD RUN {sys.argv[2]} ====="

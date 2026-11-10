@@ -3,7 +3,7 @@
 set -Eeuo pipefail
 
 here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-die() { printf 'fedora44-boot-a: %s\n' "$*" >&2; exit 1; }
+die() { printf 'build-boot-a: %s\n' "$*" >&2; exit 1; }
 usage() {
     cat <<'HELP'
 Usage: ./build-boot-a.sh --rootfs DIR --kernel-source DIR \
@@ -40,7 +40,7 @@ output=$(realpath -m -- "$output")
 (cd "$rootfs"; sha256sum -c SHA256SUMS) || die 'Rootfs checksums failed'
 [[ -s $source/boot-recipe/src/boot/dracut/root-guard.sh && -s $kernel_out/.config && -s $kernel_out/boot-initramfs.cpio.gz ]] || die 'Incomplete prepared Linux build'
 release=$(sed -n 's/^kernel_release=//p' "$kernel_out/boot-manifest")
-locked_release=$(jq -er '.kernel_version + "-" + .kernel_release' "$here/configs/fedora44-package-lock.json")
+locked_release=$(jq -er '.kernel_version + "-" + .kernel_release' "$here/configs/package-lock.json")
 [[ $release == "$locked_release" ]] || die 'Native kernel release differs from Fedora 44 package lock'
 [[ $(cat "$kernel_out/include/config/kernel.release") == "$release" ]] || die 'Native output release mismatch'
 expected_image=$(sed -n 's/^linux_kernel_sha256=//p' "$kernel_out/boot-manifest")
@@ -68,7 +68,7 @@ if [[ -s $kernel_out/cross-source.sha256 ]]; then
     (cd "$source"; sha256sum -c "$kernel_out/cross-source.sha256") || die 'Cross kernel source receipt failed'
     build_platform=linux/amd64
 fi
-trap 'printf "fedora44-boot-a: incomplete output retained at %s\n" "$output" >&2' ERR
+trap 'printf "build-boot-a: incomplete output retained at %s\n" "$output" >&2' ERR
 printf '%s\n' "$release" > "$output/KERNEL-RELEASE"
 printf '1\n' > "$output/NATIVE-O82-36"
 printf '1\n' > "$output/NATIVE-O82-36-RATES"

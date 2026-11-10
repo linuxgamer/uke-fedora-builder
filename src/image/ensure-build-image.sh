@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Keep tool packages in a reusable container image instead of reinstalling them.
 set -Eeuo pipefail
+release=${FEDORA_RELEASE:-44}
 
 [[ $# == 2 ]] || { echo 'Usage: ensure-build-image.sh docker|podman linux/arm64|linux/amd64' >&2; exit 2; }
 container=$1 platform=$2
@@ -15,10 +16,10 @@ mirror=${UKE_FEDORA_MIRROR:-https://mirror.yandex.ru/fedora/linux}
 mirror=${mirror%/}
 recipe=$here/prepare-tool-image.sh
 key=$( { sha256sum "$recipe" | cut -d' ' -f1; printf '%s\n' "$mirror" "$arch"; } | sha256sum | cut -c1-16)
-image=localhost/uke-fedora44-tools:$arch-$key
+image=localhost/uke-fedora${release}-tools:$arch-$key
 if ! "$container_cli" image inspect "$image" >/dev/null 2>&1; then
     printf 'Building reusable Fedora 44 %s tool image from %s\n' "$arch" "$mirror" >&2
-    task_container_name=uke-fedora44-tools-$arch-$key-$$
+    task_container_name=uke-fedora${release}-tools-$arch-$key-$$
     cleanup() { "$container_cli" rm -f "$task_container_name" >/dev/null 2>&1 || true; }
     trap cleanup EXIT
     run_label=()

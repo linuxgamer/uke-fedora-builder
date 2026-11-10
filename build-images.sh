@@ -90,7 +90,7 @@ profile_valid() {
     [[ $(cat "$path/BUILD-INPUTS.sha256") == "$input_hash" ]] || return 1
     (cd "$path" && sha256sum -c --status SHA256SUMS) || return 1
     if [[ -d $path/root ]]; then
-        bash "$here/src/image/audit-fedora44-rootfs.sh" "$path" || return 1
+        bash "$here/src/image/audit-rootfs.sh" "$path" || return 1
     fi
 }
 audit_final() {
@@ -117,7 +117,7 @@ audit_final() {
         printf 'PASS %s: rootfs and image pair checksums, critical files, OEM firmware\n' "$profile" \
             >> "$output/audit-report.txt"
     done
-    python3 "$here/src/image/audit-fedora44-build-log.py" "$output/build.log" "$UKE_BUILD_RUN_ID" \
+    python3 "$here/src/image/audit-build-log.py" "$output/build.log" "$UKE_BUILD_RUN_ID" \
         | tee -a "$output/audit-report.txt" \
         || die 'Unreviewed package scriptlet error in build log'
 }
@@ -148,13 +148,13 @@ if [[ $control == --audit-only ]]; then
         | tee -a "$output/progress.log"
     exit
 fi
-source "$here/src/image/fedora44-package-lock.sh"
+source "$here/src/image/package-lock.sh"
 kernel_epoch=$(jq -er .source_date_epoch \
     "$workspace/senemos-uke-kernel/manifests/linux-${uke_kernel_version}.json")
 [[ $kernel_epoch =~ ^[0-9]+$ ]] || die 'Invalid kernel source date epoch'
 [[ -x $here/build-rootfs.sh && -x $here/build-boot-a.sh ]] || die 'Image builders are missing'
-[[ -x $workspace/uke-linux-hardware-support/xiaomi-uke-firmware/src/verify-fedora44-oem-304.sh ]] || die 'OEM input verifier is missing'
-"$workspace/uke-linux-hardware-support/xiaomi-uke-firmware/src/verify-fedora44-oem-304.sh" || die 'Bundled OS3.0.304.0 OEM inputs are incomplete'
+[[ -x $workspace/uke-linux-hardware-support/xiaomi-uke-firmware/src/verify-oem-304.sh ]] || die 'OEM input verifier is missing'
+"$workspace/uke-linux-hardware-support/xiaomi-uke-firmware/src/verify-oem-304.sh" || die 'Bundled OS3.0.304.0 OEM inputs are incomplete'
 if command -v podman >/dev/null; then container=podman
 elif command -v docker >/dev/null; then container=docker
 else die 'Docker or Podman is required'; fi
@@ -201,7 +201,7 @@ arm_image=$("$here/src/image/ensure-build-image.sh" "$container" linux/arm64)
     -v "$workspace:/work" -w /work "$arm_image" \
     bash -s <<'BUILD_RPMS'
 set -Eeuo pipefail
-source uke-fedora-builder/src/image/fedora44-package-lock.sh
+source uke-fedora-builder/src/image/package-lock.sh
 dnf=(dnf5 -y --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True)
 export UKE_CCACHE=1 CCACHE_DIR=/build-cache/ccache CCACHE_MAXSIZE=10G
 git config --global --add safe.directory /work/senemos-uke-kernel
@@ -212,7 +212,7 @@ make -C uke-linux-hardware-support/uke-sensors touchscreen-srpm
 make -C uke-linux-hardware-support/uke-console-input srpm
 make -C uke-linux-hardware-support/uke-platform-runtime srpm
 make -C uke-linux-hardware-support/uke-boot FEDORA44_LEGACY=1 srpm
-make -C uke-linux-hardware-support/xiaomi-uke-firmware fedora44-image-data-srpm
+make -C uke-linux-hardware-support/xiaomi-uke-firmware image-data-srpm
 for package in libssc iio-sensor-proxy uke-ssc-fileservice; do
     make -C uke-linux-hardware-support/uke-sensors PACKAGE="$package" srpm
 done
@@ -246,7 +246,7 @@ for top in "${tops[@]}"; do
     specs=("$top"/SPECS/*.spec)
     ((${#specs[@]} == 1)) && [[ -f ${specs[0]} ]] || { printf 'Expected one spec in %s\n' "$top" >&2; exit 1; }
     if [[ $top == senemos-uke-kernel/build/srpm/rpmbuild ]]; then
-        rm -f -- "$top/.fedora44-cross-pending"
+        rm -f -- "$top/.fedora${release}-cross-pending"
     fi
     if [[ $top == senemos-uke-kernel/build/srpm/rpmbuild && $UKE_REBUILD_KERNEL == 0 ]] && \
        bash uke-fedora-builder/src/image/kernel-rpm-cache.sh check "$top"; then
@@ -264,7 +264,7 @@ for top in "${tops[@]}"; do
         bash uke-fedora-builder/src/image/rpm-build-cache.sh invalidate "$top"
     fi
     if [[ $top == senemos-uke-kernel/build/srpm/rpmbuild ]]; then
-        rm -f -- "$top/.fedora44-kernel-cache/SOURCE-SHA256"
+        rm -f -- "$top/.fedora${release}-kernel-cache/SOURCE-SHA256"
         if [[ -e $top/native-kernel-out || -e $top/boot-userspace ]]; then
             previous=$(mktemp -d "$top/previous-native-kernel-out.XXXXXXXX")
             for path in native-kernel-out boot-userspace; do
@@ -286,7 +286,7 @@ for top in "${tops[@]}"; do
         for binary in uke-offline-switch-root boot-image-aarch64; do
             readelf -h "$base/$binary" | grep -E 'Machine:.*AArch64' >/dev/null
         done
-        printf '%s\n' "$uke_kernel_krel" > "$top/.fedora44-cross-pending"
+        printf '%s\n' "$uke_kernel_krel" > "$top/.fedora${release}-cross-pending"
         continue
     fi
     rpmbuild -ba --target aarch64 --define "_topdir /work/$top" "${specs[0]}"
@@ -324,24 +324,24 @@ for package in libssc iio-sensor-proxy uke-ssc-fileservice; do
     fi
     bash uke-fedora-builder/src/image/build-control.sh done
 done
-top=uke-linux-hardware-support/xiaomi-uke-firmware/build/fedora44-image-data/rpmbuild
+top=uke-linux-hardware-support/xiaomi-uke-firmware/build/fedora${release}-image-data/rpmbuild
 bash uke-fedora-builder/src/image/build-control.sh stage 'RPM: OEM data'
-oem_rpm="$top/RPMS/noarch/uke-fedora44-oem-data-3.0.304.0-2.fc44.noarch.rpm"
+oem_rpm="$top/RPMS/noarch/uke-fedora${release}-oem-data-3.0.304.0-2.fc${release}.noarch.rpm"
 if bash uke-fedora-builder/src/image/rpm-build-cache.sh check "$top" && \
-   bash uke-fedora-builder/src/image/verify-fedora44-oem-rpm.sh "$oem_rpm"; then
+   bash uke-fedora-builder/src/image/verify-oem-rpm.sh "$oem_rpm"; then
     printf 'Reusing verified RPMs from %s\n' "$top"
 else
     bash uke-fedora-builder/src/image/rpm-build-cache.sh invalidate "$top"
     rpmbuild -ba --target noarch --define "_topdir /work/$top" \
-        "$top/SPECS/uke-fedora44-oem-data.spec"
-    bash uke-fedora-builder/src/image/verify-fedora44-oem-rpm.sh "$oem_rpm"
+        "$top/SPECS/uke-oem-data.spec"
+    bash uke-fedora-builder/src/image/verify-oem-rpm.sh "$oem_rpm"
     bash uke-fedora-builder/src/image/rpm-build-cache.sh record "$top"
 fi
 bash uke-fedora-builder/src/image/build-control.sh done
 BUILD_RPMS
 
 kernel_top=$workspace/senemos-uke-kernel/build/srpm/rpmbuild
-if [[ -f $kernel_top/.fedora44-cross-pending ]]; then
+if [[ -f $kernel_top/.fedora${release}-cross-pending ]]; then
     # The deferred cross build completes the kernel RPM stage started above.
     build_completed=$(jq -r .completed "$output/status.json")
     build_stage='RPM: kernel (cross-compile and package)'
@@ -356,7 +356,7 @@ if [[ -f $kernel_top/.fedora44-cross-pending ]]; then
 set -Eeuo pipefail
 top=/work/senemos-uke-kernel/build/srpm/rpmbuild
 source=$top/BUILD/senemos-uke-linux-kernel-mainline-${UKE_KERNEL_VERSION}-build/linux-${UKE_KERNEL_VERSION}
-[[ $(cat "$top/.fedora44-cross-pending") == "$UKE_KERNEL_KREL" ]] || exit 2
+[[ $(cat "$top/.fedora${release}-cross-pending") == "$UKE_KERNEL_KREL" ]] || exit 2
 export UKE_CROSS_KERNEL=1 UKE_CCACHE=1 CCACHE_DIR=/build-cache/ccache-cross CCACHE_MAXSIZE=10G
 export KBUILD_BUILD_USER=senemos KBUILD_BUILD_HOST=copr-builder KBUILD_BUILD_VERSION=1
 export SOURCE_DATE_EPOCH=$UKE_SOURCE_DATE_EPOCH
@@ -379,7 +379,7 @@ spec=$top/SPECS/senemos-uke-linux-kernel-mainline.spec
 UKE_PREBUILT_KERNEL=1 rpmbuild -ba --target aarch64 --define "_topdir $top" "$spec"
 rpmbuild -bp --nodeps --target aarch64 --define "_topdir $top" "$spec"
 bash /work/uke-fedora-builder/src/image/kernel-rpm-cache.sh record "$top"
-rm -f -- "$top/.fedora44-cross-pending"
+rm -f -- "$top/.fedora${release}-cross-pending"
 PACKAGE_KERNEL
     build_progress_done
 fi
@@ -418,7 +418,7 @@ cp "$workspace/uke-linux-hardware-support/uke-boot/build/srpm/rpmbuild/RPMS/aarc
 cp "$workspace"/uke-linux-hardware-support/uke-sensors/build/srpm/libssc/rpmbuild/RPMS/aarch64/libssc-0.4.4-*.fc44.aarch64.rpm "$hardware_rpms/"
 cp "$workspace"/uke-linux-hardware-support/uke-sensors/build/srpm/iio-sensor-proxy/rpmbuild/RPMS/aarch64/iio-sensor-proxy-3.9-*.fc44.aarch64.rpm "$hardware_rpms/"
 cp "$workspace"/uke-linux-hardware-support/uke-sensors/build/srpm/uke-ssc-fileservice/rpmbuild/RPMS/aarch64/uke-ssc-fileservice-2026.09.21-*.fc44.aarch64.rpm "$hardware_rpms/"
-cp "$workspace"/uke-linux-hardware-support/xiaomi-uke-firmware/build/fedora44-image-data/rpmbuild/RPMS/noarch/uke-fedora44-oem-data-3.0.304.0-2.fc44.noarch.rpm "$hardware_rpms/"
+cp "$workspace"/uke-linux-hardware-support/xiaomi-uke-firmware/build/fedora${release}-image-data/rpmbuild/RPMS/noarch/uke-fedora${release}-oem-data-3.0.304.0-2.fc${release}.noarch.rpm "$hardware_rpms/"
 
 blobs=$workspace/uke-linux-hardware-support/xiaomi-uke-firmware/payload/oem-os3.0.304.0
 input_hash=$(
@@ -429,7 +429,7 @@ input_hash=$(
         "$kernel_out/boot-manifest" "$kernel_out/arch/arm64/boot/Image" \
         "$here/build-rootfs.sh" "$here/build-boot-a.sh" \
         "$here/src/image/ensure-hwdb-image.sh" \
-        "$here/src/image/finalize-fedora44-rootfs.sh" \
+        "$here/src/image/finalize-rootfs.sh" \
         "$here/src/image/ensure-build-image.sh" \
         "$here/src/image/prepare-tool-image.sh" \
         "$lock_file" \

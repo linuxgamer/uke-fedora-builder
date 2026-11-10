@@ -2,7 +2,7 @@
 # Check release-critical files after DNF scriptlets and before an image is accepted.
 set -Eeuo pipefail
 [[ $# == 1 && -d $1/root && -f $1/PROFILE-ID ]] || {
-    echo 'Usage: audit-fedora44-rootfs.sh ROOTFS_OUTPUT' >&2; exit 2;
+    echo 'Usage: audit-rootfs.sh ROOTFS_OUTPUT' >&2; exit 2;
 }
 output=$(realpath -- "$1")
 root=$output/root

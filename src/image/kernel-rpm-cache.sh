@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # Admit a previous kernel RPM build only when its inputs and output files match.
 set -Eeuo pipefail
+release=${FEDORA_RELEASE:-44}
 
 [[ $# == 2 && ( $1 == check || $1 == record ) ]] || {
     echo 'Usage: kernel-rpm-cache.sh check|record RPMBUILD_TOP' >&2
     exit 2
 }
 action=$1
-source "$(dirname -- "${BASH_SOURCE[0]}")/fedora44-package-lock.sh"
+source "$(dirname -- "${BASH_SOURCE[0]}")/package-lock.sh"
 top=$(realpath -- "$2")
 cd "$top"
 
@@ -35,7 +36,7 @@ for path in "${build_paths[@]}"; do
     [[ -s $path ]] || { [[ $action == check ]] && exit 1; echo "Missing kernel build artifact: $path" >&2; exit 1; }
 done
 
-cache=.fedora44-kernel-cache
+cache=.fedora${release}-kernel-cache
 if [[ $action == check ]]; then
     [[ -s $cache/SOURCE-SHA256 && -s $cache/RPMS.sha256 && -s $cache/BUILD.sha256 ]] || exit 1
     [[ $(cat "$cache/SOURCE-SHA256") == "$source_hash" ]] || exit 1

@@ -9,7 +9,7 @@ For KDE and GNOME:
 
 ```sh
 ./uke-fedora-builder/build-images.sh --cross-kernel \
-  --profiles kde,gnome --output build/fedora44-images-desktop
+  --profiles kde,gnome --output build/images-desktop
 ```
 
 Omit `--cross-kernel` on an ARM64 host. Without `--profiles`, the builder makes
@@ -24,14 +24,14 @@ the available tablet; CSOT still needs physical validation.
 Check progress or stop a running build from another terminal:
 
 ```sh
-./uke-fedora-builder/build-images.sh --status --output build/fedora44-images-desktop
-./uke-fedora-builder/build-images.sh --stop --output build/fedora44-images-desktop
+./uke-fedora-builder/build-images.sh --status --output build/images-desktop
+./uke-fedora-builder/build-images.sh --stop --output build/images-desktop
 ```
 
 To continue an interrupted build, repeat the build command with `--resume`.
 The detailed log is `build.log` in the output directory. Completed stages and
 matching RPMs are reused after input and checksum checks. See
-[Fedora 44 build cache](FEDORA44-BUILD-CACHE.md) for cache details.
+[Fedora 44 build cache](BUILD-CACHE.md) for cache details.
 Run `--audit-only` with the original `--profiles` and `--output` to check
 completed image pairs again without rebuilding them.
 If a mirror advertises the missing Fedora 44 `ca-certificates` update, the

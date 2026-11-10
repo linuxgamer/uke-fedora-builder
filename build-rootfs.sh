@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Fedora rootfs composition. This produces a tarball, never writes a device.
 set -Eeuo pipefail
+release=${FEDORA_RELEASE:-44}
 
 here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 usage() {
@@ -19,7 +20,7 @@ an account on tty1; desktop images use their graphical first-run setup. The
 builder never writes a device.
 HELP
 }
-die() { printf 'fedora44-rootfs: %s\n' "$*" >&2; exit 1; }
+die() { printf 'build-rootfs: %s\n' "$*" >&2; exit 1; }
 
 if [[ ${1:-} == --inside ]]; then
     [[ $# == 1 && -d /workspace && -d /kernel-rpms && -d /hardware-rpms && -d /local-blobs && -f /core-rpm/uke-core-meta.rpm && -f /builder/uke-create-user && -f /builder/uke-create-user.service ]] || die 'Invalid container invocation'
@@ -112,7 +113,7 @@ if [[ ${1:-} == --inside ]]; then
         /hardware-rpms/libssc-0.4.4-*.fc44.aarch64.rpm \
         /hardware-rpms/iio-sensor-proxy-3.9-*.fc44.aarch64.rpm \
         /hardware-rpms/uke-ssc-fileservice-2026.09.21-*.fc44.aarch64.rpm \
-        /hardware-rpms/uke-fedora44-oem-data-3.0.304.0-2.fc44.noarch.rpm
+        /hardware-rpms/uke-fedora${release}-oem-data-3.0.304.0-2.fc${release}.noarch.rpm
     phase_done hardware-packages
     rpm --root "$root" -q --qf '%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n' \
         uke-touchscreen uke-battery-observer uke-boot-integration | \
@@ -122,11 +123,11 @@ if [[ ${1:-} == --inside ]]; then
              ($1 == "uke-boot-integration" && $2 "-" $3 == boot && $4 == "aarch64") { good++ }
              END { exit good != 3 || NR != 3 }' || die 'Expected three selected Fedora 44 hardware RPMs'
     rpm --root "$root" -q --qf '%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n' \
-        libssc iio-sensor-proxy uke-ssc-fileservice uke-fedora44-oem-data | \
-        awk '($1 == "libssc" && $2 == "0.4.4" && $3 ~ /^[1-9][0-9]*\.fc44$/ && $4 == "aarch64") ||
+        libssc iio-sensor-proxy uke-ssc-fileservice uke-fedora${release}-oem-data | \
+        awk -v rel="$release" '($1 == "libssc" && $2 == "0.4.4" && $3 ~ /^[1-9][0-9]*\.fc44$/ && $4 == "aarch64") ||
              ($1 == "iio-sensor-proxy" && $2 == "3.9" && $3 ~ /^[1-9][0-9]*\.fc44$/ && $4 == "aarch64") ||
              ($1 == "uke-ssc-fileservice" && $2 == "2026.09.21" && $3 ~ /^[1-9][0-9]*\.fc44$/ && $4 == "aarch64") ||
-             ($1 == "uke-fedora44-oem-data" && $2 == "3.0.304.0" && $3 == "2.fc44" && $4 == "noarch") { good++ }
+             ($1 == "uke-fedora" rel "-oem-data" && $2 == "3.0.304.0" && $3 == "2.fc" rel && $4 == "noarch") { good++ }
              END { exit good != 4 || NR != 4 }' || die 'Expected Fedora 44 SSC and OEM data RPMs'
     fi
     systemctl --root="$root" enable uke-touchscreen.service uke-battery.service uke-wifi-factory.service uke-bluetooth-address.service \
@@ -264,7 +265,7 @@ case $profile in tty|kde|gnome|phosh|plasma-mobile) ;; *) die 'Unknown profile' 
 [[ -d $rpms && -f $core_rpm && -d $hardware_rpms && -d $blobs && -n $output ]] || die 'Provide --kernel-rpms, --core-rpm, --hardware-rpms and --output; bundled OEM files must be present'
 [[ $panel == auto ]] || die 'Touch selection is automatic; omit --touch-panel'
 [[ $root_mib =~ ^[1-9][0-9]*$ ]] && ((root_mib >= 4096 && root_mib <= 65536)) || die 'Root image size must be 4096..65536 MiB'
-verify="$here/../uke-linux-hardware-support/xiaomi-uke-firmware/src/verify-fedora44-oem-304.sh"
+verify="$here/../uke-linux-hardware-support/xiaomi-uke-firmware/src/verify-oem-304.sh"
 [[ -x $verify ]] || die "Local blob verifier missing: $verify"
 "$verify" --root "$blobs" || die 'Bundled OEM files are incomplete; see uke-linux-hardware-support/xiaomi-uke-firmware/docs/LOCAL-BLOBS.md'
 if command -v podman >/dev/null; then container=podman
@@ -274,7 +275,7 @@ rpms=$(realpath -- "$rpms")
 core_rpm=$(realpath -- "$core_rpm")
 hardware_rpms=$(realpath -- "$hardware_rpms")
 blobs=$(realpath -- "$blobs")
-source "$here/src/image/fedora44-package-lock.sh"
+source "$here/src/image/package-lock.sh"
 uke_boot_version=${uke_boot_rpm_release%-*.fc44}
 if [[ -n $base_rootfs ]]; then
     [[ $profile != tty ]] || die 'TTY rootfs cannot have a TTY base'
@@ -304,13 +305,13 @@ for entry in 'libssc:0.4.4:aarch64' 'iio-sensor-proxy:3.9:aarch64' \
     hardware_files+=("${matches[0]}")
 done
 [[ -f $hardware_rpms/uke-boot-integration-$uke_boot_rpm_release.aarch64.rpm ]] || die "Expected Fedora 44 boot integration $uke_boot_rpm_release RPM"
-[[ -f $hardware_rpms/uke-fedora44-oem-data-3.0.304.0-2.fc44.noarch.rpm ]] || die 'Expected Fedora 44 OEM data RPM release 2'
-hardware_files+=("$hardware_rpms/uke-fedora44-oem-data-3.0.304.0-2.fc44.noarch.rpm")
+[[ -f $hardware_rpms/uke-fedora${release}-oem-data-3.0.304.0-2.fc${release}.noarch.rpm ]] || die 'Expected Fedora 44 OEM data RPM release 2'
+hardware_files+=("$hardware_rpms/uke-fedora${release}-oem-data-3.0.304.0-2.fc${release}.noarch.rpm")
 [[ ! -e $output ]] || die 'Output path already exists; select a new directory'
 mkdir -p "$output"
 cache_dir=$here/build/cache
 mkdir -p "$cache_dir/dnf"
-trap 'printf "fedora44-rootfs: incomplete output retained at %s\n" "$output" >&2' ERR
+trap 'printf "build-rootfs: incomplete output retained at %s\n" "$output" >&2' ERR
 printf 'Fedora 44 %s; Linux %s; source composition only\n' "$profile" "$uke_kernel_krel" > "$output/PROFILE"
 printf '%s\n' "$profile" > "$output/PROFILE-ID"
 printf '%s\n' "$root_mib" > "$output/ROOT-MIB"
@@ -356,9 +357,9 @@ hwdb_image=$(bash "$here/src/image/ensure-hwdb-image.sh" "$container")
     systemd-hwdb --root=/workspace/root update
 "$container" run --rm --network=none --security-opt label=disable \
     "${run_label[@]}" -v "$output:/workspace" \
-    -v "$here/src/image/finalize-fedora44-rootfs.sh:/builder/finalize.sh:ro" \
+    -v "$here/src/image/finalize-rootfs.sh:/builder/finalize.sh:ro" \
     -v "$here/src/image/ext4-labels.cpp:/builder/ext4-labels.cpp:ro" \
     -v "$here/src/boot-pair/android-sparse.cpp:/builder/android-sparse.cpp:ro" \
     "$hwdb_image" bash /builder/finalize.sh
-bash "$here/src/image/audit-fedora44-rootfs.sh" "$output"
+bash "$here/src/image/audit-rootfs.sh" "$output"
 printf 'Rootfs artifacts: %s/rootfs.tar.zst and %s/userdata.img\n' "$output" "$output"
