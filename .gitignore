@@ -2,7 +2,8 @@
 /build/
 /out/
 /artifacts/
-/reports/*
+/reports/
+/referances/
 /src/upstream/
 .env
 .env.*
