@@ -155,7 +155,11 @@ kernel_epoch=$(jq -er .source_date_epoch \
 [[ -x $here/build-rootfs.sh && -x $here/build-boot-a.sh ]] || die 'Image builders are missing'
 [[ -x $workspace/uke-linux-hardware-support/xiaomi-uke-firmware/src/verify-oem-304.sh ]] || die 'OEM input verifier is missing'
 "$workspace/uke-linux-hardware-support/xiaomi-uke-firmware/src/verify-oem-304.sh" || die 'Bundled OS3.0.304.0 OEM inputs are incomplete'
-if command -v podman >/dev/null; then container=podman
+if [[ -n ${UKE_CONTAINER:-} ]]; then
+    [[ $UKE_CONTAINER == docker || $UKE_CONTAINER == podman ]] || die 'UKE_CONTAINER must be docker or podman'
+    command -v "$UKE_CONTAINER" >/dev/null || die "Missing container runtime: $UKE_CONTAINER"
+    container=$UKE_CONTAINER
+elif command -v podman >/dev/null; then container=podman
 elif command -v docker >/dev/null; then container=docker
 else die 'Docker or Podman is required'; fi
 # LeakSanitizer cannot inspect ARM64 test processes under user-mode emulation.
