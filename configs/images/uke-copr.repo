@@ -1,0 +1,11 @@
+[copr:copr.fedorainfracloud.org:linuxgamer:uke-fedora]
+name=Uke Fedora packages (COPR)
+baseurl=https://download.copr.fedorainfracloud.org/results/linuxgamer/uke-fedora/fedora-$releasever-$basearch/
+type=rpm-md
+enabled=1
+gpgcheck=1
+repo_gpgcheck=0
+gpgkey=https://download.copr.fedorainfracloud.org/results/linuxgamer/uke-fedora/pubkey.gpg
+skip_if_unavailable=True
+# Kernel and OEM-firmware packages are image-owned; update them by flashing.
+exclude=senemos-uke-kernel* uke-fedora*-oem-data

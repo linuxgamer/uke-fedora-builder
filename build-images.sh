@@ -39,6 +39,7 @@ O82-36. Keep a previously tested boot image for recovery while testing rates.
 The script does not flash or select a device slot. A matching kernel RPM build is
 reused unless --rebuild-kernel is given.
 On x86_64, --cross-kernel compiles the ARM64 kernel with native Clang.
+Set UKE_COPR=0 to omit the optional COPR repository from the images; forks can disable it.
 Use --parallel N to build up to N desktop profiles at once; --status for concise progress, --stop to cancel, and --resume to reuse
 completed artifacts from an interrupted run. --audit-only rechecks completed
 image pairs or finishes a run that stopped at the final audit.

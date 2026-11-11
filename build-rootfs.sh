@@ -4,6 +4,7 @@ set -Eeuo pipefail
 # Per-profile cache keeps concurrent dnf installs from sharing one metadata store.
 dnf_cache=/build-cache/dnf${UKE_DNF_CACHE_SUFFIX:+-$UKE_DNF_CACHE_SUFFIX}
 release=${FEDORA_RELEASE:-44}
+copr=${UKE_COPR:-1}
 
 here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 usage() {
@@ -370,6 +371,9 @@ hwdb_image=$(bash "$here/src/image/ensure-hwdb-image.sh" "$container")
 "$container" run --rm --network=none --security-opt label=disable \
     "${run_label[@]}" -v "$output:/workspace" "$hwdb_image" \
     systemd-hwdb --root=/workspace/root update
+if [[ $copr == 1 ]]; then
+    install -Dm644 "$here/configs/images/uke-copr.repo" "$output/root/etc/yum.repos.d/uke-copr.repo"
+fi
 "$container" run --rm --network=none --security-opt label=disable \
     "${run_label[@]}" -v "$output:/workspace" \
     -v "$here/src/image/finalize-rootfs.sh:/builder/finalize.sh:ro" \
