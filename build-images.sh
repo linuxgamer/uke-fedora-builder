@@ -211,6 +211,7 @@ arm_image=$("$here/src/image/ensure-build-image.sh" "$container" linux/arm64)
     bash -s <<'BUILD_RPMS'
 set -Eeuo pipefail
 release=${FEDORA_RELEASE:?}
+cache_dir=/build-cache
 source uke-fedora-builder/src/image/package-lock.sh
 dnf=(dnf5 -y --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True)
 export UKE_CCACHE=1 CCACHE_DIR=/build-cache/ccache CCACHE_MAXSIZE=10G
