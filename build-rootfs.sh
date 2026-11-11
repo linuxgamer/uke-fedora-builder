@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Fedora rootfs composition. This produces a tarball, never writes a device.
 set -Eeuo pipefail
+# Per-profile cache keeps concurrent dnf installs from sharing one metadata store.
+dnf_cache=/build-cache/dnf${UKE_DNF_CACHE_SUFFIX:+-$UKE_DNF_CACHE_SUFFIX}
 release=${FEDORA_RELEASE:-44}
 
 here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
@@ -33,7 +35,7 @@ if [[ ${1:-} == --inside ]]; then
         printf '%s\t%s\n' "$1" "$((SECONDS - phase_start))" >> /workspace/timing.tsv
         phase_start=$SECONDS
     }
-    cached_ca_rpm=/build-cache/dnf/ca-certificates-2026.2.92_v9.0.319-1.fc44.noarch.rpm
+    cached_ca_rpm=$dnf_cache/ca-certificates-2026.2.92_v9.0.319-1.fc44.noarch.rpm
     cached_ca_hash=3d5881b39c123857cbf1283305bca2e1717f5748559ca753944a079c8c147dab
     ensure_cached_ca_rpm() {
         local part=$cached_ca_rpm.part
@@ -73,7 +75,7 @@ if [[ ${1:-} == --inside ]]; then
                 printf 'Fedora mirror lacks the advertised CA RPM; using its pinned Koji build\n' >&2
             else
                 printf 'Fedora download failed; refreshing metadata before retry (%s/3)\n' "$((attempt + 1))" >&2
-                dnf -y --setopt=system_cachedir=/build-cache/dnf clean metadata >/dev/null
+                dnf -y --setopt=system_cachedir=$dnf_cache clean metadata >/dev/null
                 refresh_metadata=1
             fi
             sleep "$((attempt * 3))"
@@ -84,7 +86,7 @@ if [[ ${1:-} == --inside ]]; then
         cp -a --reflink=auto /base-root/. "$root/"
         phase_done shared-tty-base-copy
     else
-    dnf_install_with_download_retry -y --use-host-config --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True --installroot="$root" --releasever=44 \
+    dnf_install_with_download_retry -y --use-host-config --setopt=system_cachedir=$dnf_cache --setopt=keepcache=True --installroot="$root" --releasever=44 \
         --setopt=install_weak_deps=False --setopt=localpkg_gpgcheck=False install \
         fedora-release basesystem bash coreutils systemd systemd-pam systemd-udev \
         NetworkManager dnf5 sudo shadow-utils util-linux kmod python3 \
@@ -105,7 +107,7 @@ if [[ ${1:-} == --inside ]]; then
     [[ -d $root/usr/lib/modules/${kernel_release%.fc44} ]] || die 'Kernel module directory is absent'
     [[ $(rpm --root "$root" -q --qf '%{VERSION} %{RELEASE} %{ARCH}' uke-core-meta) == '1.0.4 1.fc44 aarch64' ]] || die 'Expected Fedora 44 Uke Core RPM'
     install -Dm644 /builder/uke-zram-generator.conf "$root/etc/systemd/zram-generator.conf"
-    dnf_install_with_download_retry -y --use-host-config --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True --installroot="$root" --releasever=44 \
+    dnf_install_with_download_retry -y --use-host-config --setopt=system_cachedir=$dnf_cache --setopt=keepcache=True --installroot="$root" --releasever=44 \
         --setopt=install_weak_deps=False --setopt=localpkg_gpgcheck=False install \
         /hardware-rpms/uke-touchscreen-0.1.0-18.fc44.aarch64.rpm \
         /hardware-rpms/uke-battery-observer-1.1.0-*.fc44.aarch64.rpm \
@@ -149,7 +151,7 @@ if [[ ${1:-} == --inside ]]; then
     profile=$(cat /workspace/PROFILE-ID)
     case $profile in
         tty)
-            dnf_install_with_download_retry -y --use-host-config --setopt=system_cachedir=/build-cache/dnf \
+            dnf_install_with_download_retry -y --use-host-config --setopt=system_cachedir=$dnf_cache \
                 --setopt=keepcache=True --installroot="$root" --releasever=44 \
                 --setopt=install_weak_deps=False --setopt=localpkg_gpgcheck=False \
                 install /hardware-rpms/uke-console-input-3.6.0-*.fc44.aarch64.rpm
@@ -166,7 +168,7 @@ if [[ ${1:-} == --inside ]]; then
             # Desktop profiles copy the verified TTY root as their common base.
             # Remove its console-only first-boot unit before enabling the GUI.
             systemctl --root="$root" disable uke-console-input.service
-            dnf -y --use-host-config --setopt=system_cachedir=/build-cache/dnf \
+            dnf -y --use-host-config --setopt=system_cachedir=$dnf_cache \
                 --setopt=keepcache=True --installroot="$root" --releasever=44 \
                 --setopt=clean_requirements_on_remove=False remove uke-console-input
             rpm --root "$root" -q uke-console-input >/dev/null 2>&1 && die 'TTY keyboard remained in GUI rootfs'
@@ -190,7 +192,7 @@ if [[ ${1:-} == --inside ]]; then
                                          plasma-pa powerdevil); display=sddm ;;
             esac
             dnf_install_with_download_retry -y --use-host-config --disable-repo=fedora-cisco-openh264 \
-                --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True \
+                --setopt=system_cachedir=$dnf_cache --setopt=keepcache=True \
                 --setopt=max_parallel_downloads=8 \
                 --installroot="$root" --releasever=44 --setopt=install_weak_deps=False \
                 install noopenh264 "${common[@]}" "${desktop[@]}"
@@ -310,6 +312,14 @@ hardware_files+=("$hardware_rpms/uke-fedora${release}-oem-data-3.0.304.0-2.fc${r
 [[ ! -e $output ]] || die 'Output path already exists; select a new directory'
 mkdir -p "$output"
 cache_dir=$here/build/cache
+if [[ -n ${UKE_DNF_CACHE_SUFFIX:-} ]]; then
+    profile_cache=$cache_dir/dnf-$UKE_DNF_CACHE_SUFFIX
+    mkdir -p "$profile_cache"
+    if [[ -d $cache_dir/dnf && ! -e $profile_cache/.seeded ]]; then
+        cp -a "$cache_dir/dnf/." "$profile_cache/" 2>/dev/null || true
+        : > "$profile_cache/.seeded"
+    fi
+fi
 mkdir -p "$cache_dir/dnf"
 trap 'printf "build-rootfs: incomplete output retained at %s\n" "$output" >&2' ERR
 printf 'Fedora 44 %s; Linux %s; source composition only\n' "$profile" "$uke_kernel_krel" > "$output/PROFILE"
@@ -335,7 +345,7 @@ base_mount=()
 [[ -z $base_rootfs ]] || base_mount=(-v "$base_rootfs/root:/base-root:ro")
 "$container" run --rm --network=host --platform linux/arm64 --security-opt label=disable \
     "${run_label[@]}" \
-    -v "$cache_dir:/build-cache" \
+    -v "$cache_dir:/build-cache" -e UKE_DNF_CACHE_SUFFIX \
     "${base_mount[@]}" \
     -v "$output:/workspace" -v "$rpms:/kernel-rpms:ro" \
     -v "$hardware_rpms:/hardware-rpms:ro" \

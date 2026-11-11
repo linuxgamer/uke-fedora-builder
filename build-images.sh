@@ -16,6 +16,7 @@ resume=0
 control=''
 profiles_arg=all
 profiles_seen=0
+parallel_profiles=1
 touch_panel=auto
 
 usage() {
@@ -38,7 +39,7 @@ O82-36. Keep a previously tested boot image for recovery while testing rates.
 The script does not flash or select a device slot. A matching kernel RPM build is
 reused unless --rebuild-kernel is given.
 On x86_64, --cross-kernel compiles the ARM64 kernel with native Clang.
-Use --status for concise progress, --stop to cancel, and --resume to reuse
+Use --parallel N to build up to N desktop profiles at once; --status for concise progress, --stop to cancel, and --resume to reuse
 completed artifacts from an interrupted run. --audit-only rechecks completed
 image pairs or finishes a run that stopped at the final audit.
 HELP
@@ -47,9 +48,9 @@ die() { printf 'build-images: %s\n' "$*" >&2; exit 1; }
 
 while (($#)); do
     case $1 in
-        --stock-boot|--output|--profiles|--touch-panel)
+        --stock-boot|--output|--profiles|--parallel|--touch-panel)
             (($# >= 2)) || die "Missing value for $1"
-            case $1 in --stock-boot) stock=$2;; --output) output=$2;; --profiles) ((profiles_seen == 0)) || die 'Specify --profiles once'; profiles_seen=1; profiles_arg=$2;; --touch-panel) touch_panel=$2;; esac
+            case $1 in --stock-boot) stock=$2;; --output) output=$2;; --profiles) ((profiles_seen == 0)) || die 'Specify --profiles once'; profiles_seen=1; profiles_arg=$2;; --parallel) parallel_profiles=$2;; --touch-panel) touch_panel=$2;; esac
             shift 2;;
         -h|--help) usage; exit 0;;
         --rebuild-kernel) rebuild_kernel=1; shift;;
@@ -60,6 +61,7 @@ while (($#)); do
     esac
 done
 [[ $touch_panel == auto ]] || die 'Touch selection is automatic; omit --touch-panel'
+[[ $parallel_profiles =~ ^[1-8]$ ]] || die '--parallel must be between 1 and 8'
 canonical_profiles=(tty kde gnome phosh plasma-mobile)
 declare -A seen_profiles=()
 if [[ $profiles_arg != all ]]; then
@@ -496,7 +498,9 @@ for stale in "$output"/.*-rootfs.* "$output"/.*-pair.*; do
     [[ -e $stale ]] || continue
     clear_profile_dir "$stale"
 done
-for profile in "${build_profiles[@]}"; do
+build_profile() {
+    local profile=$1 root_mib root_dir pair_dir stage root_reused
+    local base_args=()
     root_mib=4096
     [[ $profile == tty ]] || root_mib=8192
     root_dir=$output/$profile-rootfs
@@ -542,7 +546,32 @@ for profile in "${build_profiles[@]}"; do
         mv -- "$stage" "$pair_dir"
     fi
     build_progress_done
+}
+
+tty_profiles=()
+desktop_profiles=()
+for profile in "${build_profiles[@]}"; do
+    if [[ $profile == tty ]]; then tty_profiles+=("$profile"); else desktop_profiles+=("$profile"); fi
 done
+for profile in "${tty_profiles[@]}"; do
+    build_profile "$profile"
+done
+if ((parallel_profiles > 1)) && ((${#desktop_profiles[@]} > 0)); then
+    pids=()
+    for profile in "${desktop_profiles[@]}"; do
+        ( UKE_DNF_CACHE_SUFFIX=$profile build_profile "$profile" ) \
+            > "$output/$profile.build.log" 2>&1 &
+        pids+=($!)
+        while (( $(jobs -rp | wc -l) >= parallel_profiles )); do wait -n || true; done
+    done
+    failed=0
+    for pid in "${pids[@]}"; do wait "$pid" || failed=1; done
+    ((failed == 0)) || die "Parallel profile build failed; see $output/*.build.log"
+else
+    for profile in "${desktop_profiles[@]}"; do
+        build_profile "$profile"
+    done
+fi
 build_progress 'Audit release outputs'
 audit_final
 build_progress_done

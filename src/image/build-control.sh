@@ -15,6 +15,7 @@ build_write_status() {
           completed:$completed,total:$total,started_unix:$started,updated_unix:$updated}' > "$tmp"
     chmod 0666 "$tmp"
     mv -f -- "$tmp" "$output/status.json"
+    exec 8>&-
 }
 
 build_progress() {
@@ -148,12 +149,14 @@ if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
                 '.stage=$stage | .updated_unix=$updated' "$output/status.json" > "$tmp"
             chmod 0666 "$tmp"
             mv -f -- "$tmp" "$output/status.json"
+            exec 8>&-
             jq -r '"[\(.completed)/\(.total)] \(.stage)"' "$output/status.json" | tee -a "$output/progress.log";;
         done)
             jq --argjson updated "$(date +%s)" \
                 '.completed += 1 | .updated_unix=$updated' "$output/status.json" > "$tmp"
             chmod 0666 "$tmp"
-            mv -f -- "$tmp" "$output/status.json";;
+            mv -f -- "$tmp" "$output/status.json"
+            exec 8>&-;;
         *) rm -f -- "$tmp"; exit 2;;
     esac
 fi
