@@ -176,26 +176,31 @@ if [[ ${1:-} == --inside ]]; then
             rm -f "$root/usr/lib/systemd/system/uke-create-user.service" \
                 "$root/usr/libexec/uke-create-user"
             common=(NetworkManager-wifi bluez dbus-daemon mesa-dri-drivers pipewire wireplumber upower
-                    polkit udisks2 xorg-x11-server-Xwayland)
+                    polkit udisks2 xorg-x11-server-Xwayland glibc-langpack-ru langpacks-ru)
             case $profile in
                 kde) desktop=(plasma-desktop plasma-workspace kwin sddm sddm-breeze plasma-setup
                               sddm-wayland-plasma konsole dolphin plasma-nm bluedevil
                               plasma-keyboard plasma-systemsettings kscreen plasma-pa
-                              powerdevil); display=sddm ;;
+                              powerdevil firefox kate plasma-discover ark kcalc); display=sddm ;;
                 gnome) desktop=(gnome-shell gnome-session-wayland-session gdm gnome-initial-setup gnome-control-center
-                                gnome-settings-daemon gnome-terminal nautilus); display=gdm ;;
+                                gnome-settings-daemon gnome-terminal nautilus firefox
+                                gnome-text-editor gnome-software file-roller gnome-calculator); display=gdm ;;
                 phosh) desktop=(phosh phoc gdm gnome-initial-setup gnome-shell
                                 gnome-session-wayland-session gnome-settings-daemon phosh-mobile-settings
-                                stevia-phosh-osk-provider gnome-control-center); display=gdm ;;
+                                stevia-phosh-osk-provider gnome-control-center firefox
+                                gnome-text-editor gnome-software file-roller gnome-calculator); display=gdm ;;
                 plasma-mobile) desktop=(plasma-mobile plasma-workspace kwin sddm sddm-breeze plasma-setup
                                          plasma-settings kscreen plasma-nm bluedevil plasma-keyboard
-                                         plasma-pa powerdevil); display=sddm ;;
+                                         plasma-pa powerdevil firefox kate plasma-discover ark kcalc); display=sddm ;;
             esac
             dnf_install_with_download_retry -y --use-host-config --disable-repo=fedora-cisco-openh264 \
                 --setopt=system_cachedir=$dnf_cache --setopt=keepcache=True \
                 --setopt=max_parallel_downloads=8 \
                 --installroot="$root" --releasever=44 --setopt=install_weak_deps=False \
                 install noopenh264 "${common[@]}" "${desktop[@]}"
+            if [[ $profile != tty ]]; then
+                printf 'LANG=ru_RU.UTF-8\nLC_TIME=ru_RU.UTF-8\n' > "$root/etc/locale.conf"
+            fi
             if [[ $display == sddm ]]; then
                 [[ -x $root/usr/libexec/plasma-setup-bootutil &&
                    -f $root/usr/lib/systemd/system/plasma-setup.service ]] ||
