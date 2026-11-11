@@ -209,7 +209,17 @@ dnf=(dnf5 -y --setopt=system_cachedir=/build-cache/dnf --setopt=keepcache=True)
 export UKE_CCACHE=1 CCACHE_DIR=/build-cache/ccache CCACHE_MAXSIZE=10G
 git config --global --add safe.directory /work/senemos-uke-kernel
 bash uke-fedora-builder/src/image/build-control.sh stage 'Prepare source RPMs'
-make -C senemos-uke-kernel srpm
+kernel_srpm_stamp=$cache_dir/kernel-srpm-$release.stamp
+kernel_key=$( { git -C senemos-uke-kernel rev-parse HEAD
+                git -C senemos-uke-kernel status --porcelain
+              } | sha256sum | cut -d' ' -f1 )
+if [[ -f $kernel_srpm_stamp && $(<"$kernel_srpm_stamp") == "$kernel_key" ]] &&
+   compgen -G "senemos-uke-kernel/build/srpm/*.src.rpm" >/dev/null; then
+    printf 'Reusing kernel source RPMs (%s)\n' "$kernel_key"
+else
+    make -C senemos-uke-kernel srpm
+    printf '%s\n' "$kernel_key" > "$kernel_srpm_stamp"
+fi
 make -C uke-linux-hardware-support/uke-core-meta FEDORA44_LEGACY=1 srpm
 make -C uke-linux-hardware-support/uke-sensors touchscreen-srpm
 make -C uke-linux-hardware-support/uke-console-input srpm

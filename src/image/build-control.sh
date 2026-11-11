@@ -4,6 +4,8 @@ build_pid_start() { awk '{print $22}' "/proc/$1/stat" 2>/dev/null; }
 
 build_write_status() {
     local tmp
+    exec 8>>"$output/.status.lock"
+    flock 8
     tmp=$(mktemp "$output/.status.XXXXXXXX")
     jq -n --arg state "$build_state" --arg stage "$build_stage" \
         --arg run "$UKE_BUILD_RUN_ID" --argjson completed "$build_completed" \
@@ -136,6 +138,8 @@ if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
     [[ $# -ge 1 && -n ${UKE_BUILD_OUTPUT:-} ]] || exit 2
     output=$UKE_BUILD_OUTPUT
     [[ -s $output/status.json ]] || exit 2
+    exec 8>>"$output/.status.lock"
+    flock 8
     tmp=$(mktemp "$output/.status.XXXXXXXX")
     case $1 in
         stage)
