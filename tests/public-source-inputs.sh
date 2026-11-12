@@ -21,7 +21,7 @@ curl() {
 }
 reject() { if public_source_inputs "$fixture/source" "$fixture/mirrors.json" > /dev/null 2>&1; then echo "Invalid source cache accepted: $1" >&2; exit 1; fi; }
 public_source_inputs "$fixture/source" "$fixture/mirrors.json" > /dev/null
-input=$fixture/source/packaging/families/referances/inputs/fixture.src.rpm
+input=$fixture/source/packaging/families/source-cache/inputs/fixture.src.rpm
 [[ -s $input && $(wc -l < "$fixture/calls") == 1 ]]
 UKE_OFFLINE=1 public_source_inputs "$fixture/source" "$fixture/mirrors.json" > /dev/null
 [[ $(wc -l < "$fixture/calls") == 1 ]]

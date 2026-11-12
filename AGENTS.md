@@ -88,13 +88,12 @@ builder creates files only: it never flashes a device, changes a slot or touches
 - Keep proofs, logs and long trial histories in the private records, not in this
   public repository. Do not commit credentials, serial numbers, calibration,
   OEM blobs or home-directory paths.
-- Do not recreate the `referances/` or `reports/` trees.
+- Do not recreate the removed local-evidence or report trees.
 - Documents created before November 2026 were removed in the 2026-11-11
   documentation cleanup; recover them from git history when needed.
 - Link only to files that exist in this repository or to absolute URLs of other
   repositories. Do not link to the umbrella `private/`, `build/` or
-  `artifacts/` paths, and do not recreate the removed `referances/README.md` or
-  `uke-linux-docs/` trees.
+  `artifacts/` paths, and do not recreate the removed evidence trees.
 
 Keep the release contract in mind: a matched boot/root pair, a manifest, and a
 recovery path for the user. Do not publish an image as tested because it built.

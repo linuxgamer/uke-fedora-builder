@@ -3,7 +3,6 @@
 /out/
 /artifacts/
 /reports/
-/referances/
 /src/upstream/
 .env
 .env.*

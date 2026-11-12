@@ -87,12 +87,12 @@ kernel_checkout() {
     kernel_source_check "$source" "$kernel_version"
     # Downloaded source inputs are shared between source commits so a new commit never fetches them again.
     for shared in releases touch-runtime; do
-        mkdir -p "/cache/$shared" "$source/referances"
-        for input in "$source/referances/$shared"/*; do
+        mkdir -p "/cache/$shared" "$source/source-cache"
+        for input in "$source/source-cache/$shared"/*; do
             [[ -L $input || ! -f $input ]] || cp -n "$input" "/cache/$shared/"
         done
-        rm -rf "$source/referances/$shared"
-        ln -sfn "/cache/$shared" "$source/referances/$shared"
+        rm -rf "$source/source-cache/$shared"
+        ln -sfn "/cache/$shared" "$source/source-cache/$shared"
     done
     # Keep the kernel.org release list this build resolved from, for later offline runs.
     if [[ -f /job/inputs/releases.json ]]; then cp -f /job/inputs/releases.json /cache/releases/releases.json; fi

@@ -5,7 +5,7 @@ public_source_inputs() {
     local manifest=$source/packaging/families/source-inputs.json
     jq -e 'type=="array" and all(.[];(.name|test("^[A-Za-z0-9+_.-]+$")) and (.sha256|test("^[a-f0-9]{64}$")))' "$manifest" > /dev/null || return
     while IFS=$'\t' read -r name digest; do
-        input=$source/packaging/families/referances/inputs/$name.src.rpm
+        input=$source/packaging/families/source-cache/inputs/$name.src.rpm
         if [[ ! -s $input ]]; then
             [[ ${UKE_OFFLINE:-0} != 1 ]] || { echo 'Offline source input is missing' >&2; return 1; }
             url=$(jq -er --arg name "$name" --arg digest "$digest" '[.[]|select(.name==$name and .sha256==$digest)]|if length==1 then .[0].url else error("Unmapped source input") end' "$mirrors") || return
