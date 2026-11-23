@@ -90,7 +90,7 @@ if [[ ${1:-} == --inside ]]; then
     dnf_install_with_download_retry -y --use-host-config --setopt=system_cachedir=$dnf_cache --setopt=keepcache=True --installroot="$root" --releasever=44 \
         --setopt=install_weak_deps=False --setopt=localpkg_gpgcheck=False install \
         fedora-release basesystem bash coreutils systemd systemd-pam systemd-udev \
-        NetworkManager dnf5 sudo shadow-utils util-linux kmod python3 \
+        NetworkManager dnf5 sudo shadow-utils util-linux kmod python3 bluez \
         e2fsprogs selinux-policy-targeted zram-generator \
         /kernel-rpms/senemos-uke-linux-kernel-mainline-core-*.rpm \
         /kernel-rpms/senemos-uke-linux-kernel-mainline-modules-*.rpm \
@@ -149,6 +149,10 @@ if [[ ${1:-} == --inside ]]; then
     [[ -f /local-blobs/touch/reference.bin && ! -L /local-blobs/touch/reference.bin ]] || die 'Missing device touch reference'
     install -Dm600 /local-blobs/touch/reference.bin "$root/var/lib/uke-touch/reference.bin"
     chmod 0700 "$root/var/lib/uke-touch"
+    if [[ ! -d /base-root ]]; then
+        make -C /focus-pen BUILD_DIR=/workspace/.focus-pen-build DESTDIR="$root" install
+        systemctl --root="$root" enable uke-focus-pen.service uke-focus-pen-pair.service
+    fi
     profile=$(cat /workspace/PROFILE-ID)
     case $profile in
         tty)
@@ -332,6 +336,11 @@ printf 'Fedora 44 %s; Linux %s; source composition only\n' "$profile" "$uke_kern
 printf '%s\n' "$profile" > "$output/PROFILE-ID"
 printf '%s\n' "$root_mib" > "$output/ROOT-MIB"
 printf '%s\n' "$panel" > "$output/TOUCH-PANEL"
+focus_pen_source=$here/../uke-linux-hardware-support/uke-platform-runtime/src/focus-pen
+(
+    cd -- "$focus_pen_source"
+    find . -type f ! -path './build/*' -print0 | sort -z | xargs -0 -r sha256sum
+) > "$output/FOCUS-PEN-SOURCES.sha256"
 sha256sum "$rpms"/senemos-uke-linux-kernel-mainline-{core,modules,dtbs}-"$uke_kernel_rpm_release".aarch64.rpm | \
     sed "s|$rpms/||" > "$output/KERNEL-RPMS.sha256"
 printf '%s  %s\n' "$(sha256sum "$core_rpm" | cut -d ' ' -f1)" "$(basename -- "$core_rpm")" > "$output/CORE-RPM.sha256"
@@ -340,7 +349,7 @@ sha256sum "$blobs/touch/tm/normal.bin" "$blobs/touch/tm/config.ini" \
     "$blobs/touch/csot/normal.bin" "$blobs/touch/csot/config.ini" \
     "$blobs/touch/reference.bin" | sed "s|$blobs/||" > "$output/LOCAL-BLOBS.sha256"
 if [[ -n $base_rootfs ]]; then
-    for receipt in KERNEL-RPMS.sha256 CORE-RPM.sha256 HARDWARE-RPMS.sha256 LOCAL-BLOBS.sha256 TOUCH-PANEL; do
+    for receipt in KERNEL-RPMS.sha256 CORE-RPM.sha256 HARDWARE-RPMS.sha256 LOCAL-BLOBS.sha256 TOUCH-PANEL FOCUS-PEN-SOURCES.sha256; do
         cmp "$base_rootfs/$receipt" "$output/$receipt" || die "TTY base input differs: $receipt"
     done
 fi
@@ -356,6 +365,7 @@ base_mount=()
     -v "$output:/workspace" -v "$rpms:/kernel-rpms:ro" \
     -v "$hardware_rpms:/hardware-rpms:ro" \
     -v "$blobs:/local-blobs:ro" \
+    -v "$focus_pen_source:/focus-pen:ro" \
     -v "$core_rpm:/core-rpm/uke-core-meta.rpm:ro" \
     -v "$here/build-rootfs.sh:/builder.sh:ro" \
     -v "$here/src/image/ext4-labels.cpp:/builder/ext4-labels.cpp:ro" \

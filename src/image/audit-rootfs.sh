@@ -32,6 +32,14 @@ hwdb_bytes=$(stat -c %s "$root/etc/udev/hwdb.bin")
     || fail 'journal catalog boot update is missing'
 [[ -s $root/usr/lib/systemd/system/systemd-tmpfiles-clean.service ]] || fail 'tmpfiles clean unit is missing'
 [[ -s $root/usr/lib64/security/pam_systemd.so ]] || fail 'systemd login-session PAM module is missing'
+for helper in input pair; do
+    [[ -x $root/usr/libexec/uke-focus-pen/$helper ]] || fail "missing Focus Pen helper: $helper"
+done
+for unit in uke-focus-pen.service uke-focus-pen-pair.service; do
+    [[ -s $root/usr/lib/systemd/system/$unit &&
+       -L $root/etc/systemd/system/multi-user.target.wants/$unit ]] || fail "Focus Pen unit is missing or disabled: $unit"
+done
+[[ -s $output/FOCUS-PEN-SOURCES.sha256 ]] || fail 'Focus Pen source receipt is missing'
 mapfile -t kernel_configs < <(find "$root/usr/lib/modules" -mindepth 2 -maxdepth 2 -name config -type f -print)
 ((${#kernel_configs[@]} == 1)) || fail 'expected one kernel config'
 grep -Fxq CONFIG_I2C_CHARDEV=y "${kernel_configs[0]}" || fail 'i2c-dev is unavailable'

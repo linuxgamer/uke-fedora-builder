@@ -450,6 +450,8 @@ input_hash=$(
   {
     printf '%s\n' "${UKE_FEDORA_MIRROR:-https://mirror.yandex.ru/fedora/linux}"
     printf '%s\n' "$arm_image_id" "$amd_image_id" "$native_image_id" "$touch_panel"
+    (cd -- "$workspace/uke-linux-hardware-support/uke-platform-runtime/src/focus-pen" &&
+        find . -type f ! -path './build/*' -print0 | sort -z | xargs -0 -r sha256sum)
     sha256sum "$stock" "$kernel_out/.config" "$kernel_out/boot-initramfs.cpio.gz" \
         "$kernel_out/boot-manifest" "$kernel_out/arch/arm64/boot/Image" \
         "$here/build-rootfs.sh" "$here/build-boot-a.sh" \

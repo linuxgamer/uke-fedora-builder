@@ -14,7 +14,7 @@ if [[ -f /etc/yum.repos.d/fedora-cisco-openh264.repo ]]; then
     sed -i 's/^enabled=1$/enabled=0/' /etc/yum.repos.d/fedora-cisco-openh264.repo
 fi
 case $arch in
-    arm64) cache=dnf; extra=(dnf5-plugins e2fsprogs e2fsprogs-devel git-core gnupg2 jq libselinux-devel patch systemd);;
+    arm64) cache=dnf; extra=(dnf5-plugins e2fsprogs e2fsprogs-devel git-core gnupg2 jq libselinux-devel patch systemd systemd-devel);;
     amd64) cache=dnf-x86_64; extra=(binutils ripgrep);;
 esac
 dnf5 -y --setopt="system_cachedir=/build-cache/$cache" --setopt=keepcache=True \
